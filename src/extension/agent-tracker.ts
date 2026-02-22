@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import { AgentSession } from './types';
+import { ProcessScanner } from './process-scanner';
 
 // Known agent process signatures
 const DEFAULT_AGENT_PATTERNS: RegExp[] = [
@@ -18,12 +19,40 @@ export class AgentTracker extends EventEmitter {
   private activeSessions: Map<string, AgentSession> = new Map();
   private outputTracker: Map<string, number> = new Map();
   private agentPatterns: RegExp[];
+  private processScanner: ProcessScanner;
 
   constructor() {
     super();
     this.loadAgentPatterns();
     this.watchTerminals();
     this.watchProcesses();
+
+    // System process scanning for agents running outside VS Code terminals
+    this.processScanner = new ProcessScanner({
+      patterns: this.agentPatterns,
+      intervalMs: 3000,
+    });
+    this.processScanner.on('agent-started', (agent) => {
+      // Dedup: skip if we already track a terminal session with same process name
+      const isDuplicate = Array.from(this.activeSessions.values())
+        .some(s => s.processName.toLowerCase() === agent.processName.toLowerCase());
+      if (!isDuplicate) {
+        this.activeSessions.set(agent.id, {
+          id: agent.id,
+          processName: agent.processName,
+          startTime: agent.startTime,
+          outputLength: 0,
+        });
+        this.emit('agent-started', agent);
+      }
+    });
+    this.processScanner.on('agent-completed', (result) => {
+      if (this.activeSessions.has(result.id)) {
+        this.activeSessions.delete(result.id);
+        this.emit('agent-completed', result);
+      }
+    });
+    this.processScanner.start();
   }
 
   private loadAgentPatterns() {
@@ -191,5 +220,6 @@ export class AgentTracker extends EventEmitter {
   cleanup() {
     const sessionIds = Array.from(this.activeSessions.keys());
     sessionIds.forEach(id => this.completeSession(id, 'cleanup'));
+    this.processScanner.dispose();
   }
 }
