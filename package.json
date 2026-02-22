@@ -47,6 +47,14 @@
       {
         "command": "tokenacres.importFarm",
         "title": "Token Acres: Import Farm Save"
+      },
+      {
+        "command": "tokenacres.debugSpawnPawn",
+        "title": "Token Acres: Debug Spawn Pawn"
+      },
+      {
+        "command": "tokenacres.resetFarm",
+        "title": "Token Acres: Reset Farm"
       }
     ],
     "configuration": {
