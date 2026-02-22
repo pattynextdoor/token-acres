@@ -57,8 +57,6 @@ export class BootScene extends Phaser.Scene {
     // Load placeholder assets (colored rectangles for now)
     this.loadPlaceholderAssets();
     
-    // Load map data
-    this.loadMapData();
   }
 
   private loadPlaceholderAssets() {
@@ -201,55 +199,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Removed building placeholders - now using real Tiny Swords building sprites
-
-  private loadMapData() {
-    // Generate a simple 8x8 farm map as JSON
-    const farmMap = this.generateFarmMap();
-    
-    // Store map data in cache for MapScene to use
-    this.cache.json.add('farm-map', farmMap);
-  }
-
-  private generateFarmMap() {
-    // Simple 8x8 isometric farm map data
-    const gridSize = 8;
-    const tileData = [];
-    
-    // Create base layer (grass)
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        tileData.push(1); // Grass tile ID
-      }
-    }
-
-    return {
-      width: gridSize,
-      height: gridSize,
-      tilewidth: 64,
-      tileheight: 32,
-      orientation: 'isometric',
-      layers: [
-        {
-          name: 'Ground',
-          width: gridSize,
-          height: gridSize,
-          data: tileData,
-          visible: true,
-          opacity: 1,
-        }
-      ],
-      tilesets: [
-        {
-          firstgid: 1,
-          name: 'terrain',
-          tilewidth: 64,
-          tileheight: 32,
-          tilecount: 1,
-          image: 'terrain-grass',
-        }
-      ]
-    };
-  }
 
   create() {
     // Initialize game settings

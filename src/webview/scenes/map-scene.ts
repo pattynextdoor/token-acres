@@ -8,7 +8,6 @@ import { DayNightSystem } from '../systems/day-night';
 import { gridToScreen, generateFarmWalkableGrid } from '../utils/isometric';
 
 export class MapScene extends Phaser.Scene {
-  private tilemap?: Phaser.Tilemaps.Tilemap;
   private playerController?: PlayerController;
   private pawnManager?: PawnManager;
   private cropManager?: CropManager;
@@ -262,13 +261,6 @@ export class MapScene extends Phaser.Scene {
    */
   getScreenPosition(gridX: number, gridY: number): { x: number; y: number } {
     return gridToScreen(gridX, gridY);
-  }
-
-  /**
-   * Get the tilemap for other systems to use
-   */
-  getTilemap(): Phaser.Tilemaps.Tilemap | undefined {
-    return this.tilemap;
   }
 
   /**

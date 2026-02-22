@@ -4,7 +4,7 @@ import { MapScene } from './scenes/map-scene';
 import { UIScene } from './scenes/ui-scene';
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
-  type: Phaser.WEBGL,
+  type: Phaser.AUTO,
   parent: 'game-container',
   width: window.innerWidth,
   height: window.innerHeight,
