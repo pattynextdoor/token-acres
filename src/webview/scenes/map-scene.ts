@@ -26,36 +26,42 @@ export class MapScene extends Phaser.Scene {
   create(data: { mapId?: string; spawnPoint?: string }) {
     console.log('MapScene created for map:', this.currentMapId);
 
-    // Create tilemap from generated data
-    this.createTilemap();
+    try {
+      // Create tilemap from generated data
+      this.createTilemap();
 
-    // Initialize player
-    const spawnPoint = data.spawnPoint || 'default';
-    this.createPlayer(spawnPoint);
+      // Initialize player
+      const spawnPoint = data.spawnPoint || 'default';
+      this.createPlayer(spawnPoint);
 
-    // Initialize systems
-    this.initializeSystems();
+      // Initialize systems
+      this.initializeSystems();
 
-    // Setup input
-    this.setupInput();
+      // Setup input
+      this.setupInput();
 
-    // Setup message handling
-    this.setupMessageHandling();
+      // Setup message handling
+      this.setupMessageHandling();
 
-    // Camera setup
-    this.setupCamera();
+      // Camera setup
+      this.setupCamera();
 
-    // Enable depth sorting for isometric rendering
-    this.children.sortChildrenFlag = true;
+      // Enable depth sorting for isometric rendering
+      this.children.sortChildrenFlag = true;
 
-    // Start UI scene as overlay
-    this.scene.launch('UIScene');
+      // Start UI scene as overlay
+      this.scene.launch('UIScene');
 
-    // Notify extension host that we're ready
-    MessageBridge.send({ type: 'ready', mapId: this.currentMapId });
+      // Notify extension host that we're ready
+      MessageBridge.send({ type: 'ready', mapId: this.currentMapId });
 
-    // Debug info
-    console.log('MapScene setup complete');
+      console.log('MapScene setup complete');
+    } catch (err) {
+      console.error('MapScene create failed:', err);
+      // Show error on screen so it's visible in webview
+      this.add.text(this.scale.width / 2, this.scale.height / 2,
+        `Error: ${err}`, { fontSize: '14px', color: '#ff4444' }).setOrigin(0.5);
+    }
   }
 
   private createTilemap() {
@@ -77,8 +83,8 @@ export class MapScene extends Phaser.Scene {
       for (let col = 0; col < gridSize; col++) {
         const screenPos = gridToScreen(col, row);
         
-        // Base layer - grass tiles (using the terrain tileset)
-        const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-tileset');
+        // Base layer - grass diamond tiles
+        const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-tile');
         grassTile.setDepth(-10); // Behind everything else
         
         // Create tilled plots in the center 4x4 area

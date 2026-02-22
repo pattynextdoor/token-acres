@@ -142,8 +142,7 @@ export class DayNightSystem {
       Math.floor(color.b * 255)
     );
     
-    this.overlay.setTint(tint);
-    this.overlay.setAlpha(alpha);
+    this.overlay.setFillStyle(tint, alpha);
     
     // Position overlay relative to camera
     const cam = this.scene.cameras.main;

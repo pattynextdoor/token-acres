@@ -61,9 +61,9 @@ export class BootScene extends Phaser.Scene {
 
   private loadPlaceholderAssets() {
     // Load real Tiny Swords assets
-    
-    // Terrain tileset (64x64 tiles in a 576x384 tileset)
-    this.load.image('terrain-tileset', this.getAssetUrl('tilesets/terrain.png'));
+
+    // Terrain tile — canvas-drawn isometric diamond
+    this.createTerrainTile();
 
     // Pawn spritesheets for each faction (192x192 per frame)
     this.load.spritesheet('pawn-blue-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
@@ -199,6 +199,33 @@ export class BootScene extends Phaser.Scene {
   }
 
   // Removed building placeholders - now using real Tiny Swords building sprites
+
+  private createTerrainTile() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 64;
+    canvas.height = 32;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      // Green grass diamond
+      ctx.fillStyle = '#4a7c3f';
+      ctx.beginPath();
+      ctx.moveTo(32, 0);   // top
+      ctx.lineTo(64, 16);  // right
+      ctx.lineTo(32, 32);  // bottom
+      ctx.lineTo(0, 16);   // left
+      ctx.closePath();
+      ctx.fill();
+
+      // Slight highlight on top-left edge
+      ctx.strokeStyle = '#5a9c4f';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(32, 1);
+      ctx.lineTo(63, 16);
+      ctx.stroke();
+    }
+    this.textures.addCanvas('terrain-tile', canvas);
+  }
 
   create() {
     // Initialize game settings
