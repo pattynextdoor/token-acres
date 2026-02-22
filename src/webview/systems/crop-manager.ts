@@ -105,14 +105,34 @@ export class CropManager {
     // Draw plot base
     switch (plot.type) {
       case 'tilled':
-        // Brown tilled soil
-        indicator.fillStyle(0x8b4513, 0.7);
+        // Soil health-based coloring
+        let soilColor: number;
+        let soilAlpha = 0.8;
+        
+        if (plot.soilHealth > 70) {
+          soilColor = 0x8b4513; // Rich brown - healthy
+        } else if (plot.soilHealth >= 40) {
+          soilColor = 0xa0522d; // Lighter brown - medium
+        } else {
+          soilColor = 0xd2b48c; // Grayish/pale - depleted
+          soilAlpha = 0.6;
+        }
+        
+        indicator.fillStyle(soilColor, soilAlpha);
         indicator.fillRect(pos.x - 24, pos.y - 12, 48, 24);
         
-        // Soil health indicator
-        const healthAlpha = plot.soilHealth / 100;
-        indicator.fillStyle(0x27ae60, healthAlpha * 0.3);
-        indicator.fillRect(pos.x - 24, pos.y - 12, 48, 4);
+        // Health indicator bar at top of plot
+        const healthWidth = (plot.soilHealth / 100) * 44;
+        const healthColor = plot.soilHealth > 70 ? 0x27ae60 : 
+                           plot.soilHealth >= 40 ? 0xf39c12 : 0xe74c3c;
+        
+        // Background bar
+        indicator.fillStyle(0x2c3e50, 0.6);
+        indicator.fillRect(pos.x - 22, pos.y - 14, 44, 3);
+        
+        // Health bar
+        indicator.fillStyle(healthColor, 0.8);
+        indicator.fillRect(pos.x - 22, pos.y - 14, healthWidth, 3);
         break;
         
       case 'water':
@@ -304,29 +324,45 @@ export class CropManager {
 
     let text = `+${Math.round(value)} 🌱`;
     let color = '#f1c40f';
+    let fontSize = '14px';
     
     if (cropState.isGolden) {
       text = `✨ ${text} ✨`;
       color = '#ffd700';
+      fontSize = '16px';
     } else if (cropState.quality === 'S') {
       color = '#f39c12';
+      fontSize = '15px';
     }
 
-    const valueText = this.scene.add.text(x, y - 10, text, {
-      fontSize: '12px',
+    const valueText = this.scene.add.text(x, y - 15, text, {
+      fontSize,
       color,
       fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 2,
+      strokeThickness: 3,
     }).setOrigin(0.5).setDepth(100);
 
+    // More dramatic animation for better visibility
     this.scene.tweens.add({
       targets: valueText,
-      y: y - 40,
+      y: y - 50,
+      scaleX: 1.5,
+      scaleY: 1.5,
       alpha: 0,
-      duration: 2000,
+      duration: 2500,
       ease: 'Power2',
       onComplete: () => valueText.destroy(),
+    });
+
+    // Add small bounce at start
+    this.scene.tweens.add({
+      targets: valueText,
+      scaleX: 1.2,
+      scaleY: 1.2,
+      duration: 200,
+      yoyo: true,
+      ease: 'Back.easeOut',
     });
   }
 

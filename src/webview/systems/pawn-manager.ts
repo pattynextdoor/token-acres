@@ -24,13 +24,19 @@ export class PawnManager {
         // Update existing pawn
         existingPawn.updateState(state);
       } else {
-        // Create new pawn
-        const newPawn = new Pawn(this.scene, state);
+        // Create new pawn at barn position initially
+        const barnPosition = this.getBarnPosition();
+        const modifiedState = { 
+          ...state, 
+          position: barnPosition 
+        };
+        
+        const newPawn = new Pawn(this.scene, modifiedState);
         this.pawns.set(state.id, newPawn);
         console.log(`Spawned new pawn: ${state.name} (${state.factionColor})`);
         
-        // Play spawn animation
-        this.playSpawnAnimation(newPawn);
+        // Play spawn animation and walk to final position
+        this.playSpawnAnimation(newPawn, state.position);
       }
     }
 
@@ -96,12 +102,13 @@ export class PawnManager {
   /**
    * Play spawn animation for new pawn
    */
-  private playSpawnAnimation(pawn: Pawn) {
+  private playSpawnAnimation(pawn: Pawn, finalPosition: { x: number; y: number }) {
     // Start small and scale up (remember pawns are scaled to 0.35)
     const targetScale = 0.35;
     pawn.setScale(0.1);
     pawn.setAlpha(0.5);
 
+    // Initial spawn animation
     this.scene.tweens.add({
       targets: pawn,
       scaleX: targetScale,
@@ -109,6 +116,16 @@ export class PawnManager {
       alpha: 1,
       duration: 600,
       ease: 'Back.easeOut',
+      onComplete: () => {
+        // After spawn animation, walk to final position
+        if (finalPosition.x !== pawn.pawnState.position.x || 
+            finalPosition.y !== pawn.pawnState.position.y) {
+          pawn.moveToGrid(finalPosition.x, finalPosition.y, () => {
+            // Update the pawn's state position after arriving
+            pawn.pawnState.position = finalPosition;
+          });
+        }
+      }
     });
 
     // Bounce effect
@@ -122,6 +139,21 @@ export class PawnManager {
 
     // Spawn particles
     this.createSpawnParticles(pawn.x, pawn.y, pawn.pawnState.factionColor);
+  }
+
+  /**
+   * Get barn position for pawn spawning
+   */
+  private getBarnPosition(): { x: number; y: number } {
+    // Try to get barn position from scene registry or use default
+    const farmBuildings = this.scene.registry.get('buildings');
+    if (farmBuildings) {
+      const barn = farmBuildings.find((b: any) => b.type === 'barn');
+      if (barn) return barn.position;
+    }
+    
+    // Default barn position (top-right corner of 8x8 grid)
+    return { x: 7, y: 0 };
   }
 
   /**
