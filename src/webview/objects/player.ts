@@ -21,10 +21,13 @@ export class PlayerController {
     this.scene = scene;
     this.gridPosition = { col: startCol, row: startRow };
 
-    // Create player sprite
+    // Create player sprite using blue pawn as base
     const startPos = gridToScreen(startCol, startRow);
-    this.sprite = scene.add.sprite(startPos.x, startPos.y, 'player');
+    this.sprite = scene.add.sprite(startPos.x, startPos.y, 'player-idle');
     this.sprite.setDepth(isoDepth(startCol, startRow, 2)); // Above pawns and crops
+    
+    // Scale down the 192px sprites to fit the 64px tile grid
+    this.sprite.setScale(0.35);
 
     // Setup input
     this.setupInput();
@@ -51,19 +54,25 @@ export class PlayerController {
   }
 
   private createAnimations() {
-    // Simple placeholder animations
-    // These will be replaced when we have proper sprite sheets
+    // Create animations using the blue pawn spritesheets
     
-    if (!this.scene.anims.exists('player-idle')) {
+    if (!this.scene.anims.exists('player-idle-anim')) {
       this.scene.anims.create({
-        key: 'player-idle',
-        frames: [{ key: 'player', frame: 0 }],
-        frameRate: 1,
+        key: 'player-idle-anim',
+        frames: this.scene.anims.generateFrameNumbers('player-idle', { frames: [0, 1, 2, 3, 4, 5, 6, 7] }),
+        frameRate: 8,
+        repeat: -1,
+      });
+
+      this.scene.anims.create({
+        key: 'player-run-anim',
+        frames: this.scene.anims.generateFrameNumbers('player-run', { frames: [0, 1, 2, 3, 4, 5] }),
+        frameRate: 12,
         repeat: -1,
       });
     }
 
-    this.sprite.play('player-idle');
+    this.sprite.play('player-idle-anim');
   }
 
   update(delta: number) {
@@ -110,8 +119,18 @@ export class PlayerController {
       }
 
       this.isMoving = true;
+      
+      // Play running animation when moving
+      if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-run-anim') {
+        this.sprite.play('player-run-anim');
+      }
     } else {
       this.isMoving = false;
+      
+      // Play idle animation when not moving
+      if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-idle-anim') {
+        this.sprite.play('player-idle-anim');
+      }
     }
   }
 
@@ -127,12 +146,22 @@ export class PlayerController {
       this.sprite.setPosition(this.targetPosition.x, this.targetPosition.y);
       this.targetPosition = undefined;
       this.isMoving = false;
+      
+      // Switch to idle animation
+      if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-idle-anim') {
+        this.sprite.play('player-idle-anim');
+      }
     } else {
       // Move towards target
       const speed = this.moveSpeed * (delta / 1000);
       this.sprite.x += (dx / distance) * speed;
       this.sprite.y += (dy / distance) * speed;
       this.isMoving = true;
+      
+      // Play running animation when moving to target
+      if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-run-anim') {
+        this.sprite.play('player-run-anim');
+      }
 
       // Update grid position
       const newGrid = screenToGrid(this.sprite.x, this.sprite.y);

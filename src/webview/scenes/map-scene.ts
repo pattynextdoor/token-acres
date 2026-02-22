@@ -60,27 +60,74 @@ export class MapScene extends Phaser.Scene {
   }
 
   private createTilemap() {
-    // Use the generated map data from BootScene
-    const mapData = this.cache.json.get('farm-map');
-    
-    // Create tilemap from data
-    this.tilemap = this.make.tilemap({ key: null, data: mapData });
-    
-    // Add tileset
-    const terrain = this.tilemap.addTilesetImage('terrain', 'terrain-grass');
-    
-    if (terrain) {
-      // Create ground layer
-      const groundLayer = this.tilemap.createLayer('Ground', terrain);
-      if (groundLayer) {
-        groundLayer.setDepth(-1); // Behind all other objects
-      }
-    }
+    // Generate the 8x8 isometric farm programmatically
+    this.createFarmTiles();
+    this.placeBuildingsAndDecorations();
 
     // Store walkable grid for pathfinding
     const gridSize = this.registry.get('gridSize') || 8;
     const walkableGrid = generateFarmWalkableGrid(gridSize, [], []);
     this.registry.set('walkableGrid', walkableGrid);
+  }
+
+  private createFarmTiles() {
+    const gridSize = 8;
+    
+    // Create base grass tiles and tilled soil plots
+    for (let row = 0; row < gridSize; row++) {
+      for (let col = 0; col < gridSize; col++) {
+        const screenPos = gridToScreen(col, row);
+        
+        // Base layer - grass tiles (using the terrain tileset)
+        const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-tileset');
+        grassTile.setDepth(-10); // Behind everything else
+        
+        // Create tilled plots in the center 4x4 area
+        if (col >= 2 && col <= 5 && row >= 2 && row <= 5) {
+          // Use a darker tile or create a simple brown overlay for tilled soil
+          const tilledOverlay = this.add.graphics();
+          tilledOverlay.fillStyle(0x8B4513, 0.7); // Semi-transparent brown
+          tilledOverlay.fillEllipse(screenPos.x, screenPos.y, 60, 30); // Isometric oval shape
+          tilledOverlay.setDepth(-9); // Above grass, below everything else
+        }
+      }
+    }
+  }
+
+  private placeBuildingsAndDecorations() {
+    // Place house (top-left area)
+    const housePos = gridToScreen(1, 1);
+    const house = this.add.image(housePos.x, housePos.y - 30, 'house'); // Offset Y for building height
+    house.setDepth(5);
+    house.setScale(0.8); // Scale down to fit better
+    
+    // Place barn (top-right area) 
+    const barnPos = gridToScreen(6, 1);
+    const barn = this.add.image(barnPos.x, barnPos.y - 40, 'barn'); // Offset Y for building height
+    barn.setDepth(5);
+    barn.setScale(0.6); // Scale down to fit better
+    
+    // Add some decorative bushes around the edges
+    const bush1Pos = gridToScreen(0, 0);
+    const bush1 = this.add.image(bush1Pos.x, bush1Pos.y, 'bush1');
+    bush1.setDepth(1);
+    bush1.setScale(0.5);
+    
+    const bush2Pos = gridToScreen(7, 0);
+    const bush2 = this.add.image(bush2Pos.x, bush2Pos.y, 'bush2');
+    bush2.setDepth(1);
+    bush2.setScale(0.5);
+    
+    // Add some rocks as decoration
+    const rock1Pos = gridToScreen(0, 7);
+    const rock1 = this.add.image(rock1Pos.x, rock1Pos.y, 'rock1');
+    rock1.setDepth(1);
+    rock1.setScale(0.4);
+    
+    const rock2Pos = gridToScreen(7, 7);
+    const rock2 = this.add.image(rock2Pos.x, rock2Pos.y, 'rock2');
+    rock2.setDepth(1);
+    rock2.setScale(0.4);
   }
 
   private createPlayer(spawnPoint: string) {

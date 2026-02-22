@@ -62,83 +62,99 @@ export class BootScene extends Phaser.Scene {
   }
 
   private loadPlaceholderAssets() {
-    // Create placeholder graphics for sprites
+    // Load real Tiny Swords assets
     
-    // Terrain tileset (will be replaced with Tiny Swords assets)
-    this.load.image('terrain-grass', 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==');
+    // Terrain tileset (64x64 tiles in a 576x384 tileset)
+    this.load.image('terrain-tileset', this.getAssetUrl('tilesets/terrain.png'));
 
-    // Pawn sprites (colored rectangles for each faction)
-    this.createPawnPlaceholder('pawn-blue', '#4a90e2');
-    this.createPawnPlaceholder('pawn-red', '#e24a4a');
-    this.createPawnPlaceholder('pawn-purple', '#9a4ae2');
-    this.createPawnPlaceholder('pawn-yellow', '#e2d14a');
+    // Pawn spritesheets for each faction (192x192 per frame)
+    this.load.spritesheet('pawn-blue-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-blue-run', this.getAssetUrl('sprites/pawns/blue/run.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-blue-work', this.getAssetUrl('sprites/pawns/blue/work.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
 
-    // Player sprite
-    this.createPlayerPlaceholder();
+    this.load.spritesheet('pawn-red-idle', this.getAssetUrl('sprites/pawns/red/idle.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-red-run', this.getAssetUrl('sprites/pawns/red/run.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-red-work', this.getAssetUrl('sprites/pawns/red/work.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
 
-    // Crop sprites
+    this.load.spritesheet('pawn-purple-idle', this.getAssetUrl('sprites/pawns/purple/idle.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-purple-run', this.getAssetUrl('sprites/pawns/purple/run.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-purple-work', this.getAssetUrl('sprites/pawns/purple/work.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+
+    this.load.spritesheet('pawn-yellow-idle', this.getAssetUrl('sprites/pawns/yellow/idle.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-yellow-run', this.getAssetUrl('sprites/pawns/yellow/run.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('pawn-yellow-work', this.getAssetUrl('sprites/pawns/yellow/work.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+
+    // Use blue pawn as player character
+    this.load.spritesheet('player-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+    this.load.spritesheet('player-run', this.getAssetUrl('sprites/pawns/blue/run.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
+
+    // Buildings
+    this.load.image('house', this.getAssetUrl('sprites/buildings/house.png'));
+    this.load.image('barn', this.getAssetUrl('sprites/buildings/barn.png'));
+
+    // Decorations
+    this.load.image('bush1', this.getAssetUrl('sprites/decorations/bush1.png'));
+    this.load.image('bush2', this.getAssetUrl('sprites/decorations/bush2.png'));
+    this.load.image('rock1', this.getAssetUrl('sprites/decorations/rock1.png'));
+    this.load.image('rock2', this.getAssetUrl('sprites/decorations/rock2.png'));
+
+    // Crop sprites (placeholder - use bushes as mature crops for now)
     this.createCropPlaceholders();
 
     // UI elements
     this.createUIPlaceholders();
-
-    // Buildings
-    this.createBuildingPlaceholders();
   }
 
-  private createPawnPlaceholder(key: string, color: string) {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      // Body
-      ctx.fillStyle = color;
-      ctx.fillRect(8, 12, 16, 16);
-      
-      // Head
-      ctx.fillStyle = '#ffdbac'; // Skin tone
-      ctx.fillRect(10, 4, 12, 12);
-      
-      // Simple face
-      ctx.fillStyle = '#000';
-      ctx.fillRect(12, 8, 2, 2); // Left eye
-      ctx.fillRect(18, 8, 2, 2); // Right eye
-      ctx.fillRect(14, 12, 4, 1); // Mouth
-    }
-
-    this.load.image(key, canvas.toDataURL());
+  private getAssetUrl(relativePath: string): string {
+    // In VS Code webview, assets are accessed via webview URI
+    // Use the base path provided by the webview provider
+    const basePath = (window as any).assetsBasePath || './assets';
+    return `${basePath}/${relativePath}`;
   }
 
-  private createPlayerPlaceholder() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 32;
-    canvas.height = 32;
-    const ctx = canvas.getContext('2d');
-    
-    if (ctx) {
-      // Body
-      ctx.fillStyle = '#2c3e50';
-      ctx.fillRect(8, 12, 16, 16);
-      
-      // Head
-      ctx.fillStyle = '#ffdbac';
-      ctx.fillRect(10, 4, 12, 12);
-      
-      // Hat (to distinguish from pawns)
-      ctx.fillStyle = '#8b4513';
-      ctx.fillRect(10, 4, 12, 6);
-      
-      // Face
-      ctx.fillStyle = '#000';
-      ctx.fillRect(12, 8, 2, 2);
-      ctx.fillRect(18, 8, 2, 2);
-      ctx.fillRect(14, 12, 4, 1);
-    }
-
-    this.load.image('player', canvas.toDataURL());
-  }
+  // Removed old placeholder creation methods - now using real Tiny Swords sprites
 
   private createCropPlaceholders() {
     const crops = [
@@ -184,35 +200,7 @@ export class BootScene extends Phaser.Scene {
     this.load.image('seed-icon', canvas.toDataURL());
   }
 
-  private createBuildingPlaceholders() {
-    const buildings = [
-      { key: 'house', color: '#8b4513', width: 48, height: 48 },
-      { key: 'barn', color: '#a0522d', width: 64, height: 48 },
-      { key: 'well', color: '#7f8c8d', width: 32, height: 32 },
-    ];
-
-    buildings.forEach(building => {
-      const canvas = document.createElement('canvas');
-      canvas.width = building.width;
-      canvas.height = building.height;
-      const ctx = canvas.getContext('2d');
-      
-      if (ctx) {
-        ctx.fillStyle = building.color;
-        ctx.fillRect(0, building.height / 3, building.width, 2 * building.height / 3);
-        
-        // Roof
-        ctx.fillStyle = '#2c3e50';
-        ctx.beginPath();
-        ctx.moveTo(0, building.height / 3);
-        ctx.lineTo(building.width / 2, 0);
-        ctx.lineTo(building.width, building.height / 3);
-        ctx.fill();
-      }
-      
-      this.load.image(building.key, canvas.toDataURL());
-    });
-  }
+  // Removed building placeholders - now using real Tiny Swords building sprites
 
   private loadMapData() {
     // Generate a simple 8x8 farm map as JSON

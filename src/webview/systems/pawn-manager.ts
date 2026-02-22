@@ -97,14 +97,15 @@ export class PawnManager {
    * Play spawn animation for new pawn
    */
   private playSpawnAnimation(pawn: Pawn) {
-    // Start small and scale up
+    // Start small and scale up (remember pawns are scaled to 0.35)
+    const targetScale = 0.35;
     pawn.setScale(0.1);
     pawn.setAlpha(0.5);
 
     this.scene.tweens.add({
       targets: pawn,
-      scaleX: 1,
-      scaleY: 1,
+      scaleX: targetScale,
+      scaleY: targetScale,
       alpha: 1,
       duration: 600,
       ease: 'Back.easeOut',

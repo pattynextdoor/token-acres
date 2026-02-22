@@ -25,11 +25,14 @@ export class Pawn extends Phaser.GameObjects.Sprite {
 
   constructor(scene: Phaser.Scene, state: PawnState) {
     const pos = gridToScreen(state.position.x, state.position.y);
-    super(scene, pos.x, pos.y, `pawn-${state.factionColor}`);
+    super(scene, pos.x, pos.y, `pawn-${state.factionColor}-idle`);
     
     this.scene = scene;
     this.pawnState = state;
     this.setDepth(isoDepth(state.position.x, state.position.y, 1));
+
+    // Scale down the 192px sprites to fit the 64px tile grid
+    this.setScale(0.35);
 
     scene.add.existing(this);
 
@@ -53,35 +56,35 @@ export class Pawn extends Phaser.GameObjects.Sprite {
   }
 
   private createAnimations() {
-    const key = `pawn-${this.pawnState.factionColor}`;
+    const color = this.pawnState.factionColor;
 
     // Only create animations if they don't exist yet
-    if (!this.scene.anims.exists(`${key}-idle`)) {
+    if (!this.scene.anims.exists(`pawn-${color}-idle-anim`)) {
       this.scene.anims.create({
-        key: `${key}-idle`,
-        frames: [{ key, frame: 0 }],
-        frameRate: 2,
-        repeat: -1,
-      });
-
-      this.scene.anims.create({
-        key: `${key}-walk`,
-        frames: [{ key, frame: 0 }], // Placeholder - would use multiple frames
+        key: `pawn-${color}-idle-anim`,
+        frames: this.scene.anims.generateFrameNumbers(`pawn-${color}-idle`, { frames: [0, 1, 2, 3, 4, 5, 6, 7] }),
         frameRate: 8,
         repeat: -1,
       });
 
       this.scene.anims.create({
-        key: `${key}-work`,
-        frames: [{ key, frame: 0 }], // Placeholder
+        key: `pawn-${color}-run-anim`,
+        frames: this.scene.anims.generateFrameNumbers(`pawn-${color}-run`, { frames: [0, 1, 2, 3, 4, 5] }),
+        frameRate: 12,
+        repeat: -1,
+      });
+
+      this.scene.anims.create({
+        key: `pawn-${color}-work-anim`,
+        frames: this.scene.anims.generateFrameNumbers(`pawn-${color}-work`, { frames: [0, 1, 2] }),
         frameRate: 6,
         repeat: 2,
       });
 
       this.scene.anims.create({
-        key: `${key}-celebrate`,
-        frames: [{ key, frame: 0 }], // Placeholder
-        frameRate: 10,
+        key: `pawn-${color}-celebrate-anim`,
+        frames: this.scene.anims.generateFrameNumbers(`pawn-${color}-idle`, { frames: [0, 1, 2, 3, 4, 5, 6, 7] }),
+        frameRate: 16,
         repeat: 3,
       });
     }
@@ -160,21 +163,21 @@ export class Pawn extends Phaser.GameObjects.Sprite {
   }
 
   private updateAnimation() {
-    const key = `pawn-${this.pawnState.factionColor}`;
+    const color = this.pawnState.factionColor;
     
     switch (this.pawnState.state) {
       case 'idle':
       case 'resting':
-        this.play(`${key}-idle`);
+        this.play(`pawn-${color}-idle-anim`);
         break;
       case 'walking':
-        this.play(`${key}-walk`);
+        this.play(`pawn-${color}-run-anim`);
         break;
       case 'working':
-        this.play(`${key}-work`);
+        this.play(`pawn-${color}-work-anim`);
         break;
       case 'celebrating':
-        this.play(`${key}-celebrate`);
+        this.play(`pawn-${color}-celebrate-anim`);
         // Auto-return to idle after celebration
         this.scene.time.delayedCall(3000, () => {
           if (this.pawnState.state === 'celebrating') {
