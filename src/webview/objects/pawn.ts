@@ -1,0 +1,288 @@
+import Phaser from 'phaser';
+import { gridToScreen, isoDepth } from '../utils/isometric';
+import { findPath } from '../utils/pathfinding';
+
+export interface PawnState {
+  id: string;
+  name: string;
+  factionColor: 'blue' | 'red' | 'purple' | 'yellow';
+  mood: 'ecstatic' | 'happy' | 'neutral' | 'tired' | 'exhausted';
+  state: 'idle' | 'walking' | 'working' | 'resting' | 'celebrating';
+  position: { x: number; y: number };
+  assignedPlot?: { x: number; y: number };
+  agentSessionId?: string;
+}
+
+export class Pawn extends Phaser.GameObjects.Sprite {
+  public pawnState: PawnState;
+  private path: Array<{ col: number; row: number }> = [];
+  private pathIndex = 0;
+  private moveSpeed = 80; // pixels per second
+  private onArriveCallback?: () => void;
+  private scene: Phaser.Scene;
+  private nameText: Phaser.GameObjects.Text;
+  private moodIndicator: Phaser.GameObjects.Graphics;
+
+  constructor(scene: Phaser.Scene, state: PawnState) {
+    const pos = gridToScreen(state.position.x, state.position.y);
+    super(scene, pos.x, pos.y, `pawn-${state.factionColor}`);
+    
+    this.scene = scene;
+    this.pawnState = state;
+    this.setDepth(isoDepth(state.position.x, state.position.y, 1));
+
+    scene.add.existing(this);
+
+    // Create floating name label
+    this.nameText = scene.add.text(pos.x, pos.y - 20, state.name, {
+      fontSize: '10px',
+      color: '#ffffff',
+      stroke: '#000000',
+      strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(this.depth + 1);
+
+    // Create mood indicator
+    this.moodIndicator = scene.add.graphics();
+    this.moodIndicator.setDepth(this.depth + 1);
+
+    this.createAnimations();
+    this.updateMoodIndicator();
+    this.updateAnimation();
+
+    console.log(`Pawn ${state.name} (${state.factionColor}) created at (${state.position.x}, ${state.position.y})`);
+  }
+
+  private createAnimations() {
+    const key = `pawn-${this.pawnState.factionColor}`;
+
+    // Only create animations if they don't exist yet
+    if (!this.scene.anims.exists(`${key}-idle`)) {
+      this.scene.anims.create({
+        key: `${key}-idle`,
+        frames: [{ key, frame: 0 }],
+        frameRate: 2,
+        repeat: -1,
+      });
+
+      this.scene.anims.create({
+        key: `${key}-walk`,
+        frames: [{ key, frame: 0 }], // Placeholder - would use multiple frames
+        frameRate: 8,
+        repeat: -1,
+      });
+
+      this.scene.anims.create({
+        key: `${key}-work`,
+        frames: [{ key, frame: 0 }], // Placeholder
+        frameRate: 6,
+        repeat: 2,
+      });
+
+      this.scene.anims.create({
+        key: `${key}-celebrate`,
+        frames: [{ key, frame: 0 }], // Placeholder
+        frameRate: 10,
+        repeat: 3,
+      });
+    }
+  }
+
+  /**
+   * Update pawn with new state from extension host
+   */
+  updateState(newState: PawnState) {
+    const oldState = this.pawnState.state;
+    this.pawnState = newState;
+
+    // Handle position changes
+    if (newState.position.x !== this.pawnState.position.x || 
+        newState.position.y !== this.pawnState.position.y) {
+      this.moveToGrid(newState.position.x, newState.position.y);
+    }
+
+    // Handle state changes
+    if (oldState !== newState.state) {
+      this.updateAnimation();
+    }
+
+    // Handle assignment changes
+    if (newState.assignedPlot && newState.state === 'working') {
+      this.moveToGrid(newState.assignedPlot.x, newState.assignedPlot.y, () => {
+        this.performWork();
+      });
+    }
+
+    // Update visual elements
+    this.nameText.setText(newState.name);
+    this.updateMoodIndicator();
+  }
+
+  /**
+   * Move to a grid position with pathfinding
+   */
+  moveToGrid(col: number, row: number, onArrive?: () => void) {
+    const walkableGrid = this.scene.registry.get('walkableGrid');
+    
+    if (walkableGrid) {
+      this.path = findPath(
+        { col: this.pawnState.position.x, row: this.pawnState.position.y },
+        { col, row },
+        walkableGrid
+      );
+    } else {
+      // Fallback: direct path
+      this.path = [{ col, row }];
+    }
+
+    this.pathIndex = 0;
+    this.onArriveCallback = onArrive;
+    
+    if (this.path.length > 0) {
+      this.pawnState.state = 'walking';
+      this.updateAnimation();
+    }
+  }
+
+  /**
+   * Perform work animation at current location
+   */
+  private performWork() {
+    this.pawnState.state = 'working';
+    this.updateAnimation();
+
+    // Work for 2 seconds then return to idle
+    this.scene.time.delayedCall(2000, () => {
+      if (this.pawnState.state === 'working') {
+        this.pawnState.state = 'idle';
+        this.updateAnimation();
+      }
+    });
+  }
+
+  private updateAnimation() {
+    const key = `pawn-${this.pawnState.factionColor}`;
+    
+    switch (this.pawnState.state) {
+      case 'idle':
+      case 'resting':
+        this.play(`${key}-idle`);
+        break;
+      case 'walking':
+        this.play(`${key}-walk`);
+        break;
+      case 'working':
+        this.play(`${key}-work`);
+        break;
+      case 'celebrating':
+        this.play(`${key}-celebrate`);
+        // Auto-return to idle after celebration
+        this.scene.time.delayedCall(3000, () => {
+          if (this.pawnState.state === 'celebrating') {
+            this.pawnState.state = 'idle';
+            this.updateAnimation();
+          }
+        });
+        break;
+    }
+  }
+
+  private updateMoodIndicator() {
+    this.moodIndicator.clear();
+    
+    // Draw mood as colored circle above pawn
+    let color = 0xffffff;
+    switch (this.pawnState.mood) {
+      case 'ecstatic': color = 0x00ff00; break; // Green
+      case 'happy': color = 0x90ee90; break;    // Light green
+      case 'neutral': color = 0xffff00; break;  // Yellow
+      case 'tired': color = 0xffa500; break;    // Orange
+      case 'exhausted': color = 0xff0000; break; // Red
+    }
+
+    this.moodIndicator.fillStyle(color);
+    this.moodIndicator.fillCircle(this.x + 12, this.y - 25, 3);
+  }
+
+  update(delta: number) {
+    this.updateMovement(delta);
+    this.updateVisualElements();
+  }
+
+  private updateMovement(delta: number) {
+    if (this.path.length === 0 || this.pathIndex >= this.path.length) {
+      return;
+    }
+
+    const target = this.path[this.pathIndex];
+    const targetScreen = gridToScreen(target.col, target.row);
+    const dx = targetScreen.x - this.x;
+    const dy = targetScreen.y - this.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    if (distance < 2) {
+      // Arrived at current waypoint
+      this.pawnState.position = { x: target.col, y: target.row };
+      this.setDepth(isoDepth(target.col, target.row, 1));
+      this.pathIndex++;
+
+      if (this.pathIndex >= this.path.length) {
+        // Arrived at final destination
+        this.path = [];
+        this.pathIndex = 0;
+        this.pawnState.state = 'idle';
+        this.updateAnimation();
+        
+        if (this.onArriveCallback) {
+          this.onArriveCallback();
+          this.onArriveCallback = undefined;
+        }
+      }
+    } else {
+      // Move towards current waypoint
+      const speed = this.moveSpeed * (delta / 1000);
+      this.x += (dx / distance) * speed;
+      this.y += (dy / distance) * speed;
+    }
+  }
+
+  private updateVisualElements() {
+    // Update name text position
+    this.nameText.setPosition(this.x, this.y - 20);
+
+    // Update mood indicator position
+    this.moodIndicator.setPosition(0, 0); // Reset transform
+    this.updateMoodIndicator(); // Redraw at current position
+  }
+
+  /**
+   * Add idle behavior (random wandering)
+   */
+  performIdleBehavior() {
+    if (this.pawnState.state !== 'idle' || this.path.length > 0) {
+      return;
+    }
+
+    const gridSize = this.scene.registry.get('gridSize') || 8;
+    const currentPos = this.pawnState.position;
+    
+    // Wander to a nearby random position
+    const wanderRadius = 2;
+    const newCol = Math.max(0, Math.min(gridSize - 1, 
+      currentPos.x + Math.floor(Math.random() * (wanderRadius * 2 + 1)) - wanderRadius));
+    const newRow = Math.max(0, Math.min(gridSize - 1, 
+      currentPos.y + Math.floor(Math.random() * (wanderRadius * 2 + 1)) - wanderRadius));
+
+    if (newCol !== currentPos.x || newRow !== currentPos.y) {
+      this.moveToGrid(newCol, newRow);
+    }
+  }
+
+  /**
+   * Clean up when pawn is removed
+   */
+  destroy(fromScene?: boolean) {
+    this.nameText.destroy();
+    this.moodIndicator.destroy();
+    super.destroy(fromScene);
+  }
+}

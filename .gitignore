@@ -1,0 +1,12 @@
+node_modules/
+out/
+dist/
+*.vsix
+.vscode-test/
+.token-acres/
+.DS_Store
+*.log
+coverage/
+.nyc_output/
+.vscode/settings.json
+assets/tiny-swords/

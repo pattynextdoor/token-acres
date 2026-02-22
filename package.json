@@ -1,0 +1,111 @@
+{
+  "name": "token-acres",
+  "displayName": "Token Acres — AI Agent Farm",
+  "description": "Your AI coding agents tend a pixel farm. Code well, grow well.",
+  "version": "0.1.0",
+  "publisher": "pattynextdoor",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension/extension.js",
+  "icon": "assets/ui/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pattynextdoor/token-acres"
+  },
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "type": "webview",
+          "id": "tokenacres.farmView",
+          "name": "🌾 Token Acres Farm",
+          "icon": "assets/ui/icon.svg",
+          "when": "true"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "tokenacres.openFarm",
+        "title": "Token Acres: Open Farm"
+      },
+      {
+        "command": "tokenacres.manualComplete",
+        "title": "Token Acres: Complete Task (Manual)"
+      },
+      {
+        "command": "tokenacres.exportFarm",
+        "title": "Token Acres: Export Farm Save"
+      },
+      {
+        "command": "tokenacres.importFarm",
+        "title": "Token Acres: Import Farm Save"
+      }
+    ],
+    "configuration": {
+      "title": "Token Acres",
+      "properties": {
+        "tokenacres.seasonLengthDays": {
+          "type": "number",
+          "default": 7,
+          "description": "Real days per in-game season"
+        },
+        "tokenacres.soundEnabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable farm ambient sounds"
+        },
+        "tokenacres.notifications": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show notifications for harvests and events"
+        },
+        "tokenacres.agentPatterns": {
+          "type": "array",
+          "default": [
+            "claude",
+            "aider",
+            "cursor-agent",
+            "copilot",
+            "cline",
+            "continue",
+            "codex"
+          ],
+          "description": "Process name patterns to detect as AI agents"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build-extension.mjs && node scripts/build-webview.mjs",
+    "watch": "concurrently \"node scripts/build-extension.mjs --watch\" \"node scripts/build-webview.mjs --watch\"",
+    "lint": "eslint src/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "prepare-assets": "node scripts/prepare-assets.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "concurrently": "^8.2.2",
+    "esbuild": "^0.19.0",
+    "eslint": "^8.57.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "@vscode/vsce": "^2.22.0"
+  },
+  "dependencies": {
+    "phaser": "^3.70.0"
+  }
+}
