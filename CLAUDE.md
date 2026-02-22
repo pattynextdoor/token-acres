@@ -246,6 +246,26 @@ Phaser 3 doesn't have built-in isometric support, so we implement:
 **v0.4:** Advanced customization (skins, accessories)
 **v1.0:** Public marketplace release
 
+## Maintaining User Documentation
+
+**`PLAYING.md`** is the user-facing guide on how to play Token Acres. When you make changes that affect gameplay, update `PLAYING.md` to reflect them. This includes but is not limited to:
+
+- Adding, removing, or changing **crops** (new crop types, stat changes, seasonal availability)
+- Modifying **efficiency scoring** (grade thresholds, action rewards, percentile ranges)
+- Changing **agent detection** (new supported agents, detection method changes, pattern updates)
+- Altering the **economy** (seed costs, sell values, multipliers, starting balance)
+- Adding or modifying **commands** (new Command Palette entries, keybindings)
+- Changing **settings** (new configuration options, default value changes)
+- Updating **controls** (new input methods, key remapping)
+- Modifying **seasons** (season length, crop wilting rules, new seasonal effects)
+- Changing **soil health** mechanics (degradation rates, bonuses, penalties)
+- Updating the **save system** (new save data, format changes, save location)
+- Adding **new game mechanics** (new systems, features, or gameplay loops)
+- Changing **pawn behavior** (moods, states, visual indicators, spawning rules)
+- Modifying the **day/night cycle** (timing, lighting, visual effects)
+
+When updating `PLAYING.md`, keep the tone practical and player-focused. Describe what the player experiences, not implementation details. Use tables for structured data and keep language concise.
+
 ---
 
-*Happy farming! 🌾*
+*Happy farming!*
