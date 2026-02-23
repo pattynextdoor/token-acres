@@ -10,26 +10,29 @@ export interface CropState {
   tasksUntilNextStage: number;
 }
 
-export class Crop extends Phaser.GameObjects.Sprite {
+export class Crop extends Phaser.GameObjects.Container {
   public cropState: CropState;
   private scene: Phaser.Scene;
   private gridPosition: { col: number; row: number };
+  private cropGraphics: Phaser.GameObjects.Graphics;
   private qualityIndicator?: Phaser.GameObjects.Graphics;
   private goldenEffect?: Phaser.GameObjects.Graphics;
   private progressBar?: Phaser.GameObjects.Graphics;
+  private bounceAnimation?: Phaser.Tweens.Tween;
 
   constructor(scene: Phaser.Scene, col: number, row: number, cropState: CropState) {
     const pos = gridToScreen(col, row);
     
-    // Determine sprite key based on crop type and stage
-    const spriteKey = `crop-${cropState.type}`;
-    
-    super(scene, pos.x, pos.y, spriteKey);
+    super(scene, pos.x, pos.y);
     
     this.scene = scene;
     this.cropState = cropState;
     this.gridPosition = { col, row };
     this.setDepth(isoDepth(col, row, 0.5)); // Behind pawns, above ground
+
+    // Create the main crop graphics
+    this.cropGraphics = scene.add.graphics();
+    this.add(this.cropGraphics);
 
     scene.add.existing(this);
 
@@ -58,44 +61,114 @@ export class Crop extends Phaser.GameObjects.Sprite {
     const oldStage = this.cropState.stage;
     this.cropState = newCropState;
 
-    // Update sprite if stage changed significantly
+    // Update graphics if stage changed significantly
     if (Math.floor(oldStage) !== Math.floor(newCropState.stage)) {
-      this.updateSprite();
+      this.updateCropGraphics();
     }
 
     this.updateVisuals();
   }
 
-  private updateSprite() {
-    // Update sprite based on growth stage
-    const stageProgress = this.cropState.stage / this.cropState.maxStages;
+  private updateCropGraphics() {
+    this.cropGraphics.clear();
     
-    if (stageProgress >= 1.0) {
-      // Fully grown - use mature sprite
-      this.setFrame(0); // Assuming frame 0 is mature
-    } else if (stageProgress >= 0.75) {
-      // Near mature
-      this.setFrame(0);
-    } else if (stageProgress >= 0.5) {
-      // Growing
-      this.setFrame(0);
-    } else if (stageProgress >= 0.25) {
-      // Sprout
-      this.setFrame(0);
-    } else {
-      // Seedling
-      this.setFrame(0);
+    const stageProgress = this.cropState.stage / this.cropState.maxStages;
+    const stage = Math.floor(stageProgress * 4); // 0-4 stages
+    
+    // Base crop colors by type
+    const cropColors = {
+      turnip: { plant: 0x4a7c59, produce: 0xd4a574 },
+      potato: { plant: 0x4a7c59, produce: 0x8b7355 },
+      strawberry: { plant: 0x4a7c59, produce: 0xe74c3c },
+      tomato: { plant: 0x4a7c59, produce: 0xe74c3c },
+      corn: { plant: 0x4a7c59, produce: 0xf1c40f },
+      default: { plant: 0x4a7c59, produce: 0x27ae60 }
+    };
+    
+    const colors = cropColors[this.cropState.type as keyof typeof cropColors] || cropColors.default;
+    
+    // Draw growth stages
+    switch (stage) {
+      case 0: // Seed stage - small brown dot
+        this.cropGraphics.fillStyle(0x8b4513);
+        this.cropGraphics.fillCircle(0, 2, 2);
+        break;
+        
+      case 1: // Sprout stage - small green triangle/stem
+        this.cropGraphics.fillStyle(colors.plant);
+        this.cropGraphics.beginPath();
+        this.cropGraphics.moveTo(-2, 4);
+        this.cropGraphics.lineTo(2, 4);
+        this.cropGraphics.lineTo(0, -2);
+        this.cropGraphics.closePath();
+        this.cropGraphics.fillPath();
+        break;
+        
+      case 2: // Growing stage - taller green shape with leaf
+        this.cropGraphics.fillStyle(colors.plant);
+        // Main stem
+        this.cropGraphics.fillRect(-1, -4, 2, 8);
+        // Leaves
+        this.cropGraphics.fillEllipse(-3, -2, 4, 2);
+        this.cropGraphics.fillEllipse(3, 0, 4, 2);
+        break;
+        
+      case 3: // Mature stage - full plant with colored top
+        this.cropGraphics.fillStyle(colors.plant);
+        // Base plant
+        this.cropGraphics.fillRect(-1, -6, 2, 10);
+        // Leaves
+        this.cropGraphics.fillEllipse(-4, -4, 6, 3);
+        this.cropGraphics.fillEllipse(4, -2, 6, 3);
+        // Produce
+        this.cropGraphics.fillStyle(colors.produce);
+        if (this.cropState.type === 'turnip') {
+          this.cropGraphics.fillEllipse(0, 2, 8, 6); // Underground bulb
+        } else if (this.cropState.type === 'tomato' || this.cropState.type === 'strawberry') {
+          this.cropGraphics.fillCircle(-2, -6, 3);
+          this.cropGraphics.fillCircle(2, -4, 2);
+        } else {
+          this.cropGraphics.fillEllipse(0, -8, 6, 4); // Generic top produce
+        }
+        break;
+        
+      default: // Harvestable (stage 4+) - same as mature but with bounce
+        this.updateCropGraphics(); // Recursively call for stage 3
+        this.startHarvestableAnimation();
+        return;
     }
-
-    // Scale based on growth
-    const scale = 0.4 + (stageProgress * 0.6); // Scale from 0.4 to 1.0
-    this.setScale(scale);
+    
+    // Golden effect overlay
+    if (this.cropState.isGolden) {
+      const time = this.scene.time.now;
+      const pulseAlpha = 0.3 + 0.2 * Math.sin(time * 0.005);
+      this.cropGraphics.fillStyle(0xffd700, pulseAlpha);
+      this.cropGraphics.fillCircle(0, 0, 10);
+    }
   }
 
   private updateVisuals() {
+    this.updateCropGraphics();
     this.updateQualityIndicator();
     this.updateProgressBar();
     this.updateGoldenEffect();
+  }
+  
+  private startHarvestableAnimation() {
+    // Stop any existing animation
+    if (this.bounceAnimation) {
+      this.bounceAnimation.destroy();
+    }
+    
+    // Subtle bounce/pulse animation for harvestable crops
+    this.bounceAnimation = this.scene.tweens.add({
+      targets: this,
+      y: this.y - 2,
+      duration: 1000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
   }
 
   private updateQualityIndicator() {
@@ -226,8 +299,12 @@ export class Crop extends Phaser.GameObjects.Sprite {
    * Handle hover/inspection
    */
   onHover() {
-    // Highlight crop on hover
-    this.setTint(0xdddddd);
+    // Highlight crop on hover by adding a white outline
+    const highlightGraphics = this.scene.add.graphics();
+    highlightGraphics.lineStyle(2, 0xffffff, 0.8);
+    highlightGraphics.strokeCircle(this.x, this.y, 12);
+    highlightGraphics.setDepth(this.depth + 0.1);
+    this.setData('highlight', highlightGraphics);
     
     // Show detailed info
     const info = {
@@ -250,7 +327,11 @@ export class Crop extends Phaser.GameObjects.Sprite {
   }
 
   onHoverEnd() {
-    this.clearTint();
+    const highlight = this.getData('highlight');
+    if (highlight) {
+      highlight.destroy();
+      this.setData('highlight', null);
+    }
   }
 
   /**
@@ -264,16 +345,22 @@ export class Crop extends Phaser.GameObjects.Sprite {
    * Get harvest animation
    */
   playHarvestAnimation(onComplete?: () => void) {
+    // Stop bounce animation if active
+    if (this.bounceAnimation) {
+      this.bounceAnimation.destroy();
+      this.bounceAnimation = undefined;
+    }
+    
     // Bounce and fade out animation
     this.scene.tweens.add({
-      targets: [this, this.qualityIndicator, this.progressBar, this.goldenEffect],
+      targets: this,
       scaleX: 1.2,
       scaleY: 1.2,
       duration: 200,
       yoyo: true,
       onComplete: () => {
         this.scene.tweens.add({
-          targets: [this, this.qualityIndicator, this.progressBar, this.goldenEffect],
+          targets: this,
           alpha: 0,
           y: this.y - 20,
           duration: 400,
@@ -290,9 +377,22 @@ export class Crop extends Phaser.GameObjects.Sprite {
    * Clean up when crop is removed
    */
   destroy(fromScene?: boolean) {
+    // Stop any active animations
+    if (this.bounceAnimation) {
+      this.bounceAnimation.destroy();
+    }
+    
+    // Clean up graphics
     this.qualityIndicator?.destroy();
     this.progressBar?.destroy();
     this.goldenEffect?.destroy();
+    
+    // Clean up hover highlight if it exists
+    const highlight = this.getData('highlight');
+    if (highlight) {
+      highlight.destroy();
+    }
+    
     super.destroy(fromScene);
   }
 }

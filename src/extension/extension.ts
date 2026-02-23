@@ -156,6 +156,47 @@ export function activate(context: vscode.ExtensionContext) {
           vscode.window.showErrorMessage(`Failed to import farm: ${error}`);
         }
       }
+    }),
+
+    vscode.commands.registerCommand('tokenacres.debugSpawnPawn', () => {
+      const mockAgent = { id: 'debug-' + Date.now(), processName: 'claude (debug)' };
+      farmEngine.spawnPawn(mockAgent);
+      webviewProvider.sendUpdate(farmEngine.getState());
+      
+      // Auto-complete after 3 seconds
+      setTimeout(() => {
+        farmEngine.completeTask(mockAgent, {
+          duration: 3000,
+          exitCode: 0,
+          outputLength: 500,
+          success: true,
+        });
+        webviewProvider.sendUpdate(farmEngine.getState());
+        persistence.save(farmEngine.getState());
+        statusBar.update(farmEngine.getState());
+      }, 3000);
+      
+      vscode.window.showInformationMessage('Debug pawn spawned! It will complete work in 3 seconds.');
+    }),
+
+    vscode.commands.registerCommand('tokenacres.resetFarm', () => {
+      vscode.window.showWarningMessage(
+        'This will reset your farm to its initial state. All progress will be lost. Continue?',
+        'Yes', 'No'
+      ).then(selection => {
+        if (selection === 'Yes') {
+          // Create a fresh default state
+          persistence.reset();
+          const newState = persistence.load();
+          farmEngine = new FarmEngine(newState);
+          
+          // Update webview with new state
+          webviewProvider.sendUpdate(farmEngine.getState());
+          statusBar.update(farmEngine.getState());
+          
+          vscode.window.showInformationMessage('Farm has been reset to its initial state.');
+        }
+      });
     })
   );
 

@@ -62,8 +62,16 @@ export class BootScene extends Phaser.Scene {
   private loadPlaceholderAssets() {
     // Load real Tiny Swords assets
 
-    // Terrain tile — canvas-drawn isometric diamond
-    this.createTerrainTile();
+    // Terrain tilesets (64x64 tiles)
+    this.load.image('terrain-tileset', this.getAssetUrl('tilesets/terrain.png'));
+    this.load.image('terrain-elevated', this.getAssetUrl('tilesets/terrain-elevated.png'));
+
+    // Water assets
+    this.load.image('water-bg', this.getAssetUrl('tilesets/water-bg.png'));
+    this.load.spritesheet('water-foam', this.getAssetUrl('sprites/water-foam.png'), {
+      frameWidth: 192,
+      frameHeight: 192
+    });
 
     // Pawn spritesheets for each faction (192x192 per frame)
     this.load.spritesheet('pawn-blue-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
@@ -137,6 +145,31 @@ export class BootScene extends Phaser.Scene {
     this.load.image('bush2', this.getAssetUrl('sprites/decorations/bush2.png'));
     this.load.image('rock1', this.getAssetUrl('sprites/decorations/rock1.png'));
     this.load.image('rock2', this.getAssetUrl('sprites/decorations/rock2.png'));
+    
+    // Animated trees (spritesheets)
+    this.load.spritesheet('tree1', this.getAssetUrl('sprites/decorations/tree1.png'), {
+      frameWidth: 256,
+      frameHeight: 256
+    });
+    this.load.spritesheet('tree2', this.getAssetUrl('sprites/decorations/tree2.png'), {
+      frameWidth: 256,
+      frameHeight: 256
+    });
+    this.load.spritesheet('tree3', this.getAssetUrl('sprites/decorations/tree3.png'), {
+      frameWidth: 256,
+      frameHeight: 192
+    });
+    this.load.spritesheet('tree4', this.getAssetUrl('sprites/decorations/tree4.png'), {
+      frameWidth: 256,
+      frameHeight: 192
+    });
+    
+    // Water decorations
+    this.load.image('water-rock1', this.getAssetUrl('sprites/decorations/water-rock1.png'));
+    this.load.image('water-rock2', this.getAssetUrl('sprites/decorations/water-rock2.png'));
+    this.load.image('water-rock3', this.getAssetUrl('sprites/decorations/water-rock3.png'));
+    this.load.image('water-rock4', this.getAssetUrl('sprites/decorations/water-rock4.png'));
+    this.load.image('rubber-duck', this.getAssetUrl('sprites/decorations/rubber-duck.png'));
 
     // Crop sprites (placeholder - use bushes as mature crops for now)
     this.createCropPlaceholders();
@@ -229,9 +262,53 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     // Initialize game settings
-    this.registry.set('gridSize', 8);
+    this.registry.set('gridSize', 16); // Larger world for island + water
+    
+    // Create animations for new assets
+    this.createAnimations();
     
     // Start main game scene
     this.scene.start('MapScene', { mapId: 'farm' });
+  }
+
+  private createAnimations() {
+    // Water foam animation (16 frames)
+    this.anims.create({
+      key: 'water-foam-anim',
+      frames: this.anims.generateFrameNumbers('water-foam', { start: 0, end: 15 }),
+      frameRate: 8,
+      repeat: -1
+    });
+
+    // Tree animations (gentle swaying)
+    // Tree1 & Tree2 have 6 frames each (256x256)
+    this.anims.create({
+      key: 'tree1-sway',
+      frames: this.anims.generateFrameNumbers('tree1', { start: 0, end: 5 }),
+      frameRate: 3,
+      repeat: -1
+    });
+    
+    this.anims.create({
+      key: 'tree2-sway',
+      frames: this.anims.generateFrameNumbers('tree2', { start: 0, end: 5 }),
+      frameRate: 3,
+      repeat: -1
+    });
+
+    // Tree3 & Tree4 have 6 frames each (256x192)
+    this.anims.create({
+      key: 'tree3-sway',
+      frames: this.anims.generateFrameNumbers('tree3', { start: 0, end: 5 }),
+      frameRate: 3,
+      repeat: -1
+    });
+    
+    this.anims.create({
+      key: 'tree4-sway',
+      frames: this.anims.generateFrameNumbers('tree4', { start: 0, end: 5 }),
+      frameRate: 3,
+      repeat: -1
+    });
   }
 }

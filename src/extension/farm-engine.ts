@@ -134,6 +134,9 @@ export class FarmEngine extends EventEmitter {
     // Process harvests
     const seedsEarned = this.processHarvests();
 
+    // Auto-plant logic: find idle pawn and empty tilled plot
+    this.performAutoPlanting();
+
     // Update lifetime efficiency
     this.state.stats.lifetimeEfficiency = this.scorer.getCurrentEfficiency();
 
@@ -438,6 +441,95 @@ export class FarmEngine extends EventEmitter {
 
   private getPlot(x: number, y: number): PlotState | null {
     return this.state.farm.plots.find(p => p.x === x && p.y === y) || null;
+  }
+
+  /**
+   * Auto-planting: find idle pawn and empty tilled plot, then plant best available crop
+   */
+  private performAutoPlanting() {
+    // Find idle pawn (not assigned to agent session)
+    const idlePawn = this.state.pawns.find(p => 
+      p.state === 'idle' && !p.agentSessionId
+    );
+    
+    if (!idlePawn) return;
+
+    // Find empty tilled plot
+    const emptyPlot = this.state.farm.plots.find(p => 
+      p.type === 'tilled' && !p.crop && p.soilHealth > 20
+    );
+    
+    if (!emptyPlot) return;
+
+    // Determine best crop for current season
+    const currentSeason = this.state.stats.currentSeason;
+    const availableCrops = Object.entries(CROP_DATA)
+      .filter(([type, data]) => data.seasons.includes(currentSeason))
+      .sort((a, b) => a[1].baseSellValue - b[1].baseSellValue); // Sort by value (cheapest first for reliability)
+
+    if (availableCrops.length === 0) return;
+
+    // Default to turnip (or first available crop)
+    const cropToPlant = availableCrops.find(([type]) => type === 'turnip')?.[0] || availableCrops[0][0];
+    
+    // Plant the crop (free planting as per PRD)
+    this.plantCropFree(emptyPlot.x, emptyPlot.y, cropToPlant as CropType, idlePawn);
+  }
+
+  /**
+   * Plant a crop for free (auto-planting doesn't cost seeds)
+   */
+  private plantCropFree(plotX: number, plotY: number, cropType: CropType, pawn?: PawnState): boolean {
+    const plot = this.getPlot(plotX, plotY);
+    if (!plot || plot.type !== 'tilled') {
+      return false;
+    }
+
+    // Check if crop is in season
+    if (!this.isInSeason(cropType, this.state.stats.currentSeason)) {
+      return false;
+    }
+
+    const cropData = CROP_DATA[cropType];
+
+    // Create crop with quality based on current efficiency and soil health
+    const efficiency = this.scorer.getCurrentEfficiency();
+    const soilBonus = plot.soilHealth > 70 ? 10 : plot.soilHealth < 30 ? -20 : 0;
+    const adjustedEfficiency = Math.max(0, Math.min(100, efficiency + soilBonus));
+    
+    const quality: Grade = adjustedEfficiency >= 80 ? 'S' : 
+                          adjustedEfficiency >= 60 ? 'A' : 
+                          adjustedEfficiency >= 40 ? 'B' : 'C';
+
+    plot.type = 'planted';
+    plot.crop = {
+      type: cropType,
+      stage: 0,
+      maxStages: cropData.stages,
+      quality,
+      isGolden: false,
+      tasksUntilNextStage: cropData.tasksPerStage,
+    };
+
+    // Degrade soil slightly from planting
+    plot.soilHealth = Math.max(0, plot.soilHealth - 5);
+
+    // Assign pawn to this plot for visual work animation
+    if (pawn) {
+      pawn.assignedPlot = { x: plotX, y: plotY };
+      pawn.state = 'walking';
+      
+      // Auto-return pawn to idle after animation
+      setTimeout(() => {
+        if (pawn.assignedPlot?.x === plotX && pawn.assignedPlot?.y === plotY) {
+          pawn.assignedPlot = undefined;
+          pawn.state = 'idle';
+        }
+      }, 2000);
+    }
+
+    this.emit('crop-planted', { plot, cropType, quality, automatic: true });
+    return true;
   }
 
   // Public API

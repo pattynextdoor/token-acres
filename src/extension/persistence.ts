@@ -191,4 +191,14 @@ export class PersistenceManager {
     }
     this.context.globalState.update('tokenacres.farmState', undefined);
   }
+
+  /**
+   * Reset the farm to initial state
+   */
+  reset(): FarmState {
+    this.deleteSave();
+    const newState = this.createDefaultState();
+    this.save(newState);
+    return newState;
+  }
 }

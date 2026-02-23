@@ -34,53 +34,71 @@ export class UIScene extends Phaser.Scene {
     this.hudContainer.setScrollFactor(0); // Fixed to camera
     this.hudContainer.setDepth(1000); // Always on top
 
-    // Background panel for HUD
-    const hudBg = this.add.graphics();
-    hudBg.fillStyle(0x000000, 0.7);
-    hudBg.fillRoundedRect(10, 10, 300, 120, 8);
-    this.hudContainer.add(hudBg);
+    // Left panel - compact and minimal
+    const leftPanel = this.add.graphics();
+    leftPanel.fillStyle(0x2c3e50, 0.9);
+    leftPanel.fillRoundedRect(10, 10, 180, 80, 6);
+    leftPanel.lineStyle(1, 0x34495e);
+    leftPanel.strokeRoundedRect(10, 10, 180, 80, 6);
+    this.hudContainer.add(leftPanel);
 
-    // Title
-    const title = this.add.text(20, 20, '🌾 Token Acres', {
-      fontSize: '18px',
-      color: '#ffffff',
+    // Seeds counter (top priority)
+    this.seedsText = this.add.text(20, 25, '🌱 --', {
+      fontSize: '16px',
+      color: '#f1c40f',
       fontStyle: 'bold'
-    });
-    this.hudContainer.add(title);
-
-    // Seeds counter
-    this.seedsText = this.add.text(20, 50, '🌱 Seeds: --', {
-      fontSize: '14px',
-      color: '#f1c40f'
     });
     this.hudContainer.add(this.seedsText);
 
-    // Pawns counter
-    this.pawnsText = this.add.text(20, 70, '👥 Pawns: --', {
+    // Pawns counter (below seeds)
+    this.pawnsText = this.add.text(20, 45, '👥 -- active', {
       fontSize: '14px',
       color: '#3498db'
     });
     this.hudContainer.add(this.pawnsText);
 
-    // Season indicator
-    this.seasonText = this.add.text(20, 90, '🌿 Season: Spring', {
-      fontSize: '14px',
-      color: '#27ae60'
+    // Pending harvests indicator (flashing when ready)
+    const harvestsContainer = this.add.container(20, 65);
+    const harvestIcon = this.add.text(0, 0, '🌾', { fontSize: '14px' });
+    const harvestText = this.add.text(20, 0, 'No harvests ready', {
+      fontSize: '12px',
+      color: '#95a5a6'
     });
+    harvestsContainer.add([harvestIcon, harvestText]);
+    this.hudContainer.add(harvestsContainer);
+    
+    // Store reference for harvest indicator updates
+    this.setData('harvestContainer', harvestsContainer);
+    this.setData('harvestText', harvestText);
+
+    // Right panel - season and efficiency
+    const rightPanel = this.add.graphics();
+    rightPanel.fillStyle(0x2c3e50, 0.9);
+    rightPanel.fillRoundedRect(width - 160, 10, 150, 60, 6);
+    rightPanel.lineStyle(1, 0x34495e);
+    rightPanel.strokeRoundedRect(width - 160, 10, 150, 60, 6);
+    this.hudContainer.add(rightPanel);
+
+    // Season indicator (top right)
+    this.seasonText = this.add.text(width - 150, 25, '🌸 Spring', {
+      fontSize: '14px',
+      color: '#e74c3c',
+      fontStyle: 'bold'
+    }).setOrigin(0, 0);
     this.hudContainer.add(this.seasonText);
 
-    // Efficiency meter
-    this.efficiencyText = this.add.text(20, 110, '📊 Efficiency: --%', {
-      fontSize: '14px',
-      color: '#e67e22'
-    });
+    // Efficiency meter (below season)
+    this.efficiencyText = this.add.text(width - 150, 45, '⚡ --%', {
+      fontSize: '12px',
+      color: '#f39c12'
+    }).setOrigin(0, 0);
     this.hudContainer.add(this.efficiencyText);
 
-    // Controls hint (bottom right)
-    const controlsText = this.add.text(width - 10, height - 40, 
-      'WASD: Move • Click: Move • E: Interact', {
-      fontSize: '12px',
-      color: '#bdc3c7',
+    // Controls hint (bottom right, smaller and less intrusive)
+    const controlsText = this.add.text(width - 10, height - 20, 
+      'WASD/Click: Move', {
+      fontSize: '10px',
+      color: '#7f8c8d',
       align: 'right'
     }).setOrigin(1, 0).setScrollFactor(0).setDepth(1000);
 
@@ -138,27 +156,67 @@ export class UIScene extends Phaser.Scene {
 
     // Update seeds
     if (this.seedsText && farmState.economy) {
-      this.seedsText.setText(`🌱 Seeds: ${farmState.economy.seeds}`);
+      this.seedsText.setText(`🌱 ${farmState.economy.seeds}`);
     }
 
     // Update pawns
     if (this.pawnsText && farmState.pawns) {
       const activePawns = farmState.pawns.filter((p: any) => p.agentSessionId).length;
-      const totalPawns = farmState.pawns.length;
-      this.pawnsText.setText(`👥 Pawns: ${activePawns}/${totalPawns}`);
+      this.pawnsText.setText(`👥 ${activePawns} active`);
     }
 
     // Update season
     if (this.seasonText && farmState.stats) {
       const season = farmState.stats.currentSeason;
       const emoji = this.getSeasonEmoji(season);
-      this.seasonText.setText(`${emoji} Season: ${this.capitalizeFirst(season)}`);
+      this.seasonText.setText(`${emoji} ${this.capitalizeFirst(season)}`);
     }
 
     // Update efficiency
     if (this.efficiencyText && farmState.stats) {
-      const efficiency = farmState.stats.lifetimeEfficiency || 0;
-      this.efficiencyText.setText(`📊 Efficiency: ${efficiency}%`);
+      const efficiency = Math.round(farmState.stats.lifetimeEfficiency || 0);
+      this.efficiencyText.setText(`⚡ ${efficiency}%`);
+    }
+
+    // Update harvest indicator
+    this.updateHarvestIndicator(farmState);
+  }
+
+  private updateHarvestIndicator(farmState: any) {
+    const harvestText = this.getData('harvestText');
+    if (!harvestText || !farmState.farm) return;
+
+    // Count ready crops
+    const readyCrops = farmState.farm.plots.filter((plot: any) => 
+      plot.crop && plot.crop.stage >= plot.crop.maxStages
+    ).length;
+
+    if (readyCrops > 0) {
+      harvestText.setText(`${readyCrops} ready to harvest`);
+      harvestText.setColor('#e74c3c');
+      
+      // Add pulsing animation for urgency
+      if (!harvestText.getData('pulsing')) {
+        harvestText.setData('pulsing', true);
+        this.tweens.add({
+          targets: harvestText,
+          alpha: 0.5,
+          duration: 800,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+    } else {
+      harvestText.setText('No harvests ready');
+      harvestText.setColor('#95a5a6');
+      harvestText.setAlpha(1);
+      
+      // Stop pulsing animation
+      if (harvestText.getData('pulsing')) {
+        harvestText.setData('pulsing', false);
+        this.tweens.killTweensOf(harvestText);
+      }
     }
   }
 
