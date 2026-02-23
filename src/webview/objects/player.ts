@@ -16,6 +16,7 @@ export class PlayerController {
   private gridPosition = { col: 4, row: 4 };
   private targetPosition?: { x: number; y: number };
   private isMoving = false;
+  private previousPosition = { x: 0, y: 0 };
 
   constructor(scene: Phaser.Scene, startCol: number, startRow: number) {
     this.scene = scene;
@@ -35,7 +36,17 @@ export class PlayerController {
     // Create animations (placeholder - will be expanded when we have proper sprites)
     this.createAnimations();
 
+    this.previousPosition = { x: this.sprite.x, y: this.sprite.y };
+
     console.log(`Player created at grid (${startCol}, ${startRow}), screen (${startPos.x}, ${startPos.y})`);
+  }
+
+  private isWalkable(col: number, row: number): boolean {
+    const walkableGrid: boolean[][] | undefined = this.scene.registry.get('walkableGrid');
+    if (!walkableGrid) return true; // No grid yet — allow movement
+    if (row < 0 || row >= walkableGrid.length) return false;
+    if (col < 0 || col >= walkableGrid[row].length) return false;
+    return walkableGrid[row][col];
   }
 
   private setupInput() {
@@ -103,12 +114,24 @@ export class PlayerController {
     }
 
     if (moveX !== 0 || moveY !== 0) {
-      // Move the sprite
+      // Save position before moving
+      const prevX = this.sprite.x;
+      const prevY = this.sprite.y;
+
+      // Tentatively move the sprite
       this.sprite.x += moveX;
       this.sprite.y += moveY;
 
-      // Update grid position (account for centered sprite positioning)
+      // Check if new grid position is walkable
       const newGrid = screenToGrid(this.sprite.x - 32, this.sprite.y - 32);
+      if (!this.isWalkable(newGrid.col, newGrid.row)) {
+        // Revert movement
+        this.sprite.x = prevX;
+        this.sprite.y = prevY;
+        return;
+      }
+
+      // Update grid position
       if (newGrid.col !== this.gridPosition.col || newGrid.row !== this.gridPosition.row) {
         this.gridPosition = { col: newGrid.col, row: newGrid.row };
         this.notifyPositionChange();
@@ -150,17 +173,31 @@ export class PlayerController {
     } else {
       // Move towards target
       const speed = this.moveSpeed * (delta / 1000);
-      this.sprite.x += (dx / distance) * speed;
-      this.sprite.y += (dy / distance) * speed;
+      const newX = this.sprite.x + (dx / distance) * speed;
+      const newY = this.sprite.y + (dy / distance) * speed;
+
+      // Check if new position is walkable before applying
+      const newGrid = screenToGrid(newX - 32, newY - 32);
+      if (!this.isWalkable(newGrid.col, newGrid.row)) {
+        // Cancel movement — stop at current position
+        this.targetPosition = undefined;
+        this.isMoving = false;
+        if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-idle-anim') {
+          this.sprite.play('player-idle-anim');
+        }
+        return;
+      }
+
+      this.sprite.x = newX;
+      this.sprite.y = newY;
       this.isMoving = true;
-      
+
       // Play running animation when moving to target
       if (!this.sprite.anims.isPlaying || this.sprite.anims.currentAnim?.key !== 'player-run-anim') {
         this.sprite.play('player-run-anim');
       }
 
-      // Update grid position (account for centered sprite positioning)
-      const newGrid = screenToGrid(this.sprite.x - 32, this.sprite.y - 32);
+      // Update grid position
       if (newGrid.col !== this.gridPosition.col || newGrid.row !== this.gridPosition.row) {
         this.gridPosition = { col: newGrid.col, row: newGrid.row };
         this.notifyPositionChange();
@@ -195,6 +232,7 @@ export class PlayerController {
    * Move to a specific grid position
    */
   moveToGrid(col: number, row: number) {
+    if (!this.isWalkable(col, row)) return; // Don't move to non-walkable tiles
     const targetScreen = gridToScreen(col, row);
     this.targetPosition = { x: targetScreen.x + 32, y: targetScreen.y + 32 }; // Center on tile
   }

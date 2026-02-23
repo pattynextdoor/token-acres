@@ -193,4 +193,4 @@ MIT License — See [LICENSE](LICENSE) for details.
 
 ---
 
-**Happy farming! May your agents be productive and your crops bountiful!** 🌾✨
+**Happy farming! May your agents be productive and your crops bountiful!** 

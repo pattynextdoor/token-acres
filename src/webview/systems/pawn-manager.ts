@@ -152,8 +152,8 @@ export class PawnManager {
       if (barn) return barn.position;
     }
     
-    // Default barn position (top-right corner of 8x8 grid)
-    return { x: 7, y: 0 };
+    // Default barn position — must be on the island (barn is at grid 11,6)
+    return { x: 11, y: 6 };
   }
 
   /**

@@ -2,6 +2,14 @@
 
 > **AI Agent Farm Game** — Your coding agents tend a pixel farm. Code well, grow well.
 
+## Post-Task Rule
+
+After completing a task (or a full list of tasks), always run:
+```
+npm run build && npm run package && "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" --install-extension token-acres-*.vsix
+```
+This installs the latest changes into VS Code. The user just needs to reload the window to see updates.
+
 ## What This Is
 
 Token Acres is a VS Code extension that gamifies your AI-assisted coding workflow. When you run AI coding agents (Claude, Aider, Cursor, etc.) in your terminal, they appear as pixel creatures on your farm. Your coding efficiency determines crop quality and farm growth.

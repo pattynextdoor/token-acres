@@ -8,6 +8,7 @@ export class UIScene extends Phaser.Scene {
   private efficiencyText?: Phaser.GameObjects.Text;
   private tooltip?: Phaser.GameObjects.Container;
   private hudContainer?: Phaser.GameObjects.Container;
+  private harvestText?: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'UIScene' });
@@ -67,9 +68,7 @@ export class UIScene extends Phaser.Scene {
     harvestsContainer.add([harvestIcon, harvestText]);
     this.hudContainer.add(harvestsContainer);
     
-    // Store reference for harvest indicator updates
-    this.setData('harvestContainer', harvestsContainer);
-    this.setData('harvestText', harvestText);
+    this.harvestText = harvestText;
 
     // Right panel - season and efficiency
     const rightPanel = this.add.graphics();
@@ -183,8 +182,8 @@ export class UIScene extends Phaser.Scene {
   }
 
   private updateHarvestIndicator(farmState: any) {
-    const harvestText = this.getData('harvestText');
-    if (!harvestText || !farmState.farm) return;
+    if (!this.harvestText || !farmState.farm) return;
+    const harvestText = this.harvestText;
 
     // Count ready crops
     const readyCrops = farmState.farm.plots.filter((plot: any) => 

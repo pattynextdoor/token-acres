@@ -1,174 +1,189 @@
 import Phaser from 'phaser';
 
-export class BootScene extends Phaser.Scene {
-  private loadingTimedOut = false;
+interface AssetDef {
+  key: string;
+  path: string;
+  type: 'image' | 'spritesheet';
+  frameWidth?: number;
+  frameHeight?: number;
+}
 
+export class BootScene extends Phaser.Scene {
   constructor() {
     super({ key: 'BootScene' });
   }
 
   preload() {
-    // Hide the loading screen from HTML
+    // All loading happens in create() with timeouts
+  }
+
+  async create() {
+    // Hide HTML loading overlay
     const loadingElement = document.getElementById('loading');
-    if (loadingElement) {
-      loadingElement.style.display = 'none';
-    }
+    if (loadingElement) loadingElement.style.display = 'none';
 
-    // Show loading progress
-    const progressBar = this.add.graphics();
-    const progressBox = this.add.graphics();
+    // Show progress UI
     const { width, height } = this.scale;
-
+    const progressBox = this.add.graphics();
     progressBox.fillStyle(0x222222);
     progressBox.fillRect(width / 2 - 160, height / 2 - 25, 320, 50);
 
+    const progressBar = this.add.graphics();
     const loadingText = this.add.text(width / 2, height / 2 - 50, 'Loading Token Acres...', {
-      fontSize: '20px',
-      color: '#ffffff',
+      fontSize: '20px', color: '#ffffff',
     }).setOrigin(0.5);
-
     const percentText = this.add.text(width / 2, height / 2, '0%', {
-      fontSize: '18px',
-      color: '#ffffff',
+      fontSize: '18px', color: '#ffffff',
     }).setOrigin(0.5);
-
     const assetText = this.add.text(width / 2, height / 2 + 50, '', {
-      fontSize: '14px',
-      color: '#ffffff',
+      fontSize: '14px', color: '#ffffff',
     }).setOrigin(0.5);
 
-    const cleanupUI = () => {
-      progressBar.destroy();
-      progressBox.destroy();
-      loadingText.destroy();
-      percentText.destroy();
-      assetText.destroy();
-    };
-
-    this.load.on('progress', (value: number) => {
+    const updateProgress = (loaded: number, total: number, currentKey: string) => {
+      const pct = total > 0 ? loaded / total : 0;
       progressBar.clear();
       progressBar.fillStyle(0x5cb85c);
-      progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * value, 30);
-      percentText.setText(Math.round(value * 100) + '%');
-    });
+      progressBar.fillRect(width / 2 - 150, height / 2 - 15, 300 * pct, 30);
+      percentText.setText(Math.round(pct * 100) + '%');
+      assetText.setText('Loading: ' + currentKey);
+    };
 
-    this.load.on('fileprogress', (file: any) => {
-      assetText.setText('Loading: ' + file.key);
-    });
+    const assets = this.getAssetList();
+    let loaded = 0;
 
-    this.load.on('complete', () => {
-      cleanupUI();
-    });
-
-    this.load.on('loaderror', (file: any) => {
-      console.error(`Failed to load asset: ${file.key} (${file.url})`);
-    });
-
-    // Safety timeout: if loading stalls, force-start the game with whatever loaded
-    setTimeout(() => {
-      if (!this.loadingTimedOut && this.scene.isActive('BootScene')) {
-        console.warn('Asset loading timed out after 10s — starting game with partial assets');
-        this.loadingTimedOut = true;
-        cleanupUI();
-        this.startGame();
+    const loadAll = async () => {
+      for (const asset of assets) {
+        updateProgress(loaded, assets.length, asset.key);
+        // Race each asset against a 3s timeout — if Image hangs, skip it
+        await Promise.race([
+          this.loadAsset(asset),
+          new Promise<void>(resolve => setTimeout(resolve, 3000)),
+        ]);
+        loaded++;
       }
-    }, 10000);
+    };
 
-    // Load game assets
-    this.loadGameAssets();
-  }
+    // Race entire loading against an 8s global timeout
+    await Promise.race([
+      loadAll(),
+      new Promise<void>(resolve => setTimeout(resolve, 8000)),
+    ]);
 
-  private loadGameAssets() {
-    // Essential: terrain and water
-    this.load.image('terrain-elevated', this.getAssetUrl('tilesets/terrain-elevated.png'));
-    this.load.image('water-bg', this.getAssetUrl('tilesets/water-bg.png'));
-
-    // Essential: player pawn
-    this.load.spritesheet('pawn-blue-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-blue-run', this.getAssetUrl('sprites/pawns/blue/run.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-blue-work', this.getAssetUrl('sprites/pawns/blue/work.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-
-    // Player character (same as blue pawn)
-    this.load.spritesheet('player-idle', this.getAssetUrl('sprites/pawns/blue/idle.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('player-run', this.getAssetUrl('sprites/pawns/blue/run.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-
-    // Buildings
-    this.load.image('house', this.getAssetUrl('sprites/buildings/house.png'));
-    this.load.image('barn', this.getAssetUrl('sprites/buildings/barn.png'));
-
-    // Other pawn factions
-    this.load.spritesheet('pawn-red-idle', this.getAssetUrl('sprites/pawns/red/idle.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-red-run', this.getAssetUrl('sprites/pawns/red/run.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-red-work', this.getAssetUrl('sprites/pawns/red/work.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-purple-idle', this.getAssetUrl('sprites/pawns/purple/idle.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-purple-run', this.getAssetUrl('sprites/pawns/purple/run.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-purple-work', this.getAssetUrl('sprites/pawns/purple/work.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-yellow-idle', this.getAssetUrl('sprites/pawns/yellow/idle.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-yellow-run', this.getAssetUrl('sprites/pawns/yellow/run.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('pawn-yellow-work', this.getAssetUrl('sprites/pawns/yellow/work.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-
-    // Decorations (non-essential — game works without these)
-    this.load.image('rock1', this.getAssetUrl('sprites/decorations/rock1.png'));
-    this.load.image('rock2', this.getAssetUrl('sprites/decorations/rock2.png'));
-    this.load.spritesheet('water-foam', this.getAssetUrl('sprites/water-foam.png'), {
-      frameWidth: 192, frameHeight: 192
-    });
-    this.load.spritesheet('tree1', this.getAssetUrl('sprites/decorations/tree1.png'), {
-      frameWidth: 256, frameHeight: 256
-    });
-    this.load.spritesheet('tree2', this.getAssetUrl('sprites/decorations/tree2.png'), {
-      frameWidth: 256, frameHeight: 256
-    });
-    this.load.spritesheet('tree3', this.getAssetUrl('sprites/decorations/tree3.png'), {
-      frameWidth: 256, frameHeight: 192
-    });
-    this.load.spritesheet('tree4', this.getAssetUrl('sprites/decorations/tree4.png'), {
-      frameWidth: 256, frameHeight: 192
-    });
-    this.load.image('bush1', this.getAssetUrl('sprites/decorations/bush1.png'));
-    this.load.image('bush2', this.getAssetUrl('sprites/decorations/bush2.png'));
-    this.load.image('water-rock1', this.getAssetUrl('sprites/decorations/water-rock1.png'));
-    this.load.image('water-rock2', this.getAssetUrl('sprites/decorations/water-rock2.png'));
-    this.load.image('water-rock3', this.getAssetUrl('sprites/decorations/water-rock3.png'));
-    this.load.image('water-rock4', this.getAssetUrl('sprites/decorations/water-rock4.png'));
-    this.load.image('rubber-duck', this.getAssetUrl('sprites/decorations/rubber-duck.png'));
-
-    // Canvas-generated textures (no network load)
+    // Canvas-generated textures (instant, no network)
     this.createCropPlaceholders();
     this.createUIPlaceholders();
+
+    // Clean up progress UI
+    progressBar.destroy();
+    progressBox.destroy();
+    loadingText.destroy();
+    percentText.destroy();
+    assetText.destroy();
+
+    // Start game
+    this.registry.set('gridSize', 16);
+    this.createAnimations();
+    this.scene.start('MapScene', { mapId: 'farm' });
+  }
+
+  /** Load a single asset via Image element with a 3-second timeout */
+  private async loadAsset(asset: AssetDef): Promise<void> {
+    const url = this.getAssetUrl(asset.path);
+
+    try {
+      const img = await this.loadImageWithTimeout(url, 3000);
+
+      if (asset.type === 'spritesheet' && asset.frameWidth && asset.frameHeight) {
+        const tex = this.textures.addImage(asset.key, img);
+        const cols = Math.floor(img.width / asset.frameWidth);
+        const rows = Math.floor(img.height / asset.frameHeight);
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            tex.add(r * cols + c, 0, c * asset.frameWidth, r * asset.frameHeight, asset.frameWidth, asset.frameHeight);
+          }
+        }
+      } else {
+        this.textures.addImage(asset.key, img);
+      }
+    } catch (err: any) {
+      console.warn(`Skipping ${asset.key}: ${err.message}`);
+    }
+  }
+
+  /** Load an image directly from URL with a timeout (no fetch, no blob) */
+  private loadImageWithTimeout(url: string, ms: number): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const timeoutId = setTimeout(() => {
+        img.src = '';  // cancel the load
+        reject(new Error('timeout'));
+      }, ms);
+      img.onload = () => {
+        clearTimeout(timeoutId);
+        resolve(img);
+      };
+      img.onerror = () => {
+        clearTimeout(timeoutId);
+        reject(new Error('decode error'));
+      };
+      img.src = url;
+    });
   }
 
   private getAssetUrl(relativePath: string): string {
     const basePath = (window as any).assetsBasePath || './assets';
     return `${basePath}/${relativePath}`;
+  }
+
+  private getAssetList(): AssetDef[] {
+    const ss = (key: string, path: string, fw: number, fh: number): AssetDef =>
+      ({ key, path, type: 'spritesheet', frameWidth: fw, frameHeight: fh });
+    const img = (key: string, path: string): AssetDef =>
+      ({ key, path, type: 'image' });
+
+    return [
+      // Essential — terrain & water
+      img('terrain-elevated', 'tilesets/terrain-elevated.png'),
+      img('water-bg', 'tilesets/water-bg.png'),
+
+      // Essential — player & blue pawn
+      ss('pawn-blue-idle', 'sprites/pawns/blue/idle.png', 192, 192),
+      ss('pawn-blue-run', 'sprites/pawns/blue/run.png', 192, 192),
+      ss('pawn-blue-work', 'sprites/pawns/blue/work.png', 192, 192),
+      ss('player-idle', 'sprites/pawns/blue/idle.png', 192, 192),
+      ss('player-run', 'sprites/pawns/blue/run.png', 192, 192),
+
+      // Buildings
+      img('house', 'sprites/buildings/house.png'),
+      img('barn', 'sprites/buildings/barn.png'),
+
+      // Other factions
+      ss('pawn-red-idle', 'sprites/pawns/red/idle.png', 192, 192),
+      ss('pawn-red-run', 'sprites/pawns/red/run.png', 192, 192),
+      ss('pawn-red-work', 'sprites/pawns/red/work.png', 192, 192),
+      ss('pawn-purple-idle', 'sprites/pawns/purple/idle.png', 192, 192),
+      ss('pawn-purple-run', 'sprites/pawns/purple/run.png', 192, 192),
+      ss('pawn-purple-work', 'sprites/pawns/purple/work.png', 192, 192),
+      ss('pawn-yellow-idle', 'sprites/pawns/yellow/idle.png', 192, 192),
+      ss('pawn-yellow-run', 'sprites/pawns/yellow/run.png', 192, 192),
+      ss('pawn-yellow-work', 'sprites/pawns/yellow/work.png', 192, 192),
+
+      // Decorations
+      img('rock1', 'sprites/decorations/rock1.png'),
+      img('rock2', 'sprites/decorations/rock2.png'),
+      ss('water-foam', 'sprites/water-foam.png', 192, 192),
+      ss('tree1', 'sprites/decorations/tree1.png', 192, 256),
+      ss('tree2', 'sprites/decorations/tree2.png', 192, 256),
+      ss('tree3', 'sprites/decorations/tree3.png', 192, 192),
+      ss('tree4', 'sprites/decorations/tree4.png', 192, 192),
+      img('bush1', 'sprites/decorations/bush1.png'),
+      img('bush2', 'sprites/decorations/bush2.png'),
+      img('water-rock1', 'sprites/decorations/water-rock1.png'),
+      img('water-rock2', 'sprites/decorations/water-rock2.png'),
+      img('water-rock3', 'sprites/decorations/water-rock3.png'),
+      img('water-rock4', 'sprites/decorations/water-rock4.png'),
+      img('rubber-duck', 'sprites/decorations/rubber-duck.png'),
+    ];
   }
 
   private createCropPlaceholders() {
@@ -178,7 +193,6 @@ export class BootScene extends Phaser.Scene {
       { key: 'crop-strawberry', color: '#e74c3c' },
       { key: 'crop-tomato', color: '#e74c3c' },
     ];
-
     crops.forEach(crop => {
       const canvas = document.createElement('canvas');
       canvas.width = 16;
@@ -208,19 +222,7 @@ export class BootScene extends Phaser.Scene {
     this.textures.addCanvas('seed-icon', canvas);
   }
 
-  create() {
-    if (this.loadingTimedOut) return; // Already started via timeout
-    this.startGame();
-  }
-
-  private startGame() {
-    this.registry.set('gridSize', 16);
-    this.createAnimations();
-    this.scene.start('MapScene', { mapId: 'farm' });
-  }
-
   private createAnimations() {
-    // Only create animations for textures that actually loaded
     if (this.textures.exists('water-foam')) {
       this.anims.create({
         key: 'water-foam-anim',
@@ -231,12 +233,11 @@ export class BootScene extends Phaser.Scene {
     }
 
     const trees = [
-      { key: 'tree1', anim: 'tree1-sway', frames: 5 },
-      { key: 'tree2', anim: 'tree2-sway', frames: 5 },
-      { key: 'tree3', anim: 'tree3-sway', frames: 5 },
-      { key: 'tree4', anim: 'tree4-sway', frames: 5 },
+      { key: 'tree1', anim: 'tree1-sway', frames: 7 },
+      { key: 'tree2', anim: 'tree2-sway', frames: 7 },
+      { key: 'tree3', anim: 'tree3-sway', frames: 7 },
+      { key: 'tree4', anim: 'tree4-sway', frames: 7 },
     ];
-
     trees.forEach(tree => {
       if (this.textures.exists(tree.key)) {
         this.anims.create({

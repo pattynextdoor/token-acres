@@ -123,10 +123,10 @@ export class TokenAcresWebviewProvider implements vscode.WebviewViewProvider {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" 
     content="default-src 'none';
-             img-src ${webview.cspSource} ${assetsUri} data: blob:;
+             img-src ${webview.cspSource} data: blob:;
              script-src 'nonce-${nonce}' 'unsafe-eval';
              style-src ${webview.cspSource} 'unsafe-inline';
-             connect-src ${webview.cspSource};">
+             connect-src ${webview.cspSource} blob:;">
   <title>Token Acres Farm</title>
   <style>
     body {

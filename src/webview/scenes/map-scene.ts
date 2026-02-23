@@ -145,47 +145,100 @@ export class MapScene extends Phaser.Scene {
       }
     }
 
+    // Cliff faces rendered below/right of island edge
+    if (useRealTiles) {
+      this.createCliffFaces(islandBounds);
+    }
+
     this.createFarmPlots(islandBounds);
   }
 
-  private getElevatedTileIndex(col: number, row: number, bounds: any): number {
-    // Tiny Swords terrain-elevated.png: 9 cols × 6 rows of 64×64 tiles
-    // Left half (cols 0-4): grass top only
-    // Right half (cols 5-8): grass top + cliff face
+  private createCliffFaces(islandBounds: { minCol: number; maxCol: number; minRow: number; maxRow: number }) {
+    // terrain-elevated.png has two 4-col blocks in a 9-col grid (frame = row*9+col):
+    //   Left block (cols 0-3): cliff → walkable terrain
+    //   Right block (cols 5-8): cliff → water  (the rocky cliff faces we need)
     //
-    // Key tiles identified from the tileset image:
-    // Frame 10 (row 1, col 1): center grass fill
-    // Frame 0  (row 0, col 0): top-left corner
-    // Frame 1  (row 0, col 1): top edge
-    // Frame 9  (row 1, col 0): left edge
-    // Right-side tiles with cliff faces start at col 5
+    // Right block cliff frames (ref tile → frame):
+    //   Bottom cliff (cols 5-7, rows 3-5):
+    //     10→32  11→33  12→34   (cliff top, grass overhang)
+    //     17→41  18→42  19→43   (cliff middle, rock)
+    //     21→50  22→51  23→52   (cliff bottom, rock meets water)
+    //   Right-edge column (col 8, rows 0-5):
+    //     13→8   14→17  15→26   (surface-level right cliff)
+    //     16→35  20→44  24→53   (cliff-level right cliff)
+
+    const addCliffTile = (col: number, row: number, frame: number) => {
+      const screenPos = gridToScreen(col, row);
+      const tile = this.add.image(screenPos.x + 32, screenPos.y + 32, 'terrain-elevated');
+      tile.setFrame(frame);
+      tile.setDepth(-6);
+    };
+
+    // Bottom cliff — 2 rows below island bottom edge
+    // Surface bottom edge already has ref tiles 7/8/9 (frames 18/19/20)
+    // Below that: ref 17/18/19 then 21/22/23
+    const cliffFrames = [
+      [41, 42, 43], // ref 17/18/19: cliff middle (rock)
+      [50, 51, 52], // ref 21/22/23: cliff bottom (rock meets water)
+    ];
+
+    for (let r = 0; r < cliffFrames.length; r++) {
+      const gridRow = islandBounds.maxRow + 1 + r;
+      for (let col = islandBounds.minCol; col <= islandBounds.maxCol; col++) {
+        const isLeft = col === islandBounds.minCol;
+        const isRight = col === islandBounds.maxCol;
+        const frame = isLeft ? cliffFrames[r][0] : isRight ? cliffFrames[r][2] : cliffFrames[r][1];
+        addCliffTile(col, gridRow, frame);
+      }
+    }
+
+    // Right cliff column — alongside the island right edge
+    const rightCol = islandBounds.maxCol + 1;
+    const rightSurfaceFrames = [8, 17, 26]; // ref 13/14/15: right cliff at surface level
+    for (let row = islandBounds.minRow; row <= islandBounds.maxRow; row++) {
+      const isTop = row === islandBounds.minRow;
+      const isBottom = row === islandBounds.maxRow;
+      const frame = isTop ? rightSurfaceFrames[0] : isBottom ? rightSurfaceFrames[2] : rightSurfaceFrames[1];
+      addCliffTile(rightCol, row, frame);
+    }
+
+    // Right cliff corner — below right cliff, at intersection with bottom cliff (2 rows)
+    const rightCliffFrames = [44, 53]; // ref 20/24: right cliff at cliff level
+    for (let r = 0; r < rightCliffFrames.length; r++) {
+      addCliffTile(rightCol, islandBounds.maxRow + 1 + r, rightCliffFrames[r]);
+    }
+  }
+
+  private getElevatedTileIndex(col: number, row: number, bounds: any): number {
+    // terrain-elevated.png: 9 cols × 6 rows of 64×64 tiles
+    // Left block = 4 cols (0-3) × 6 rows, frame = row*9 + col
+    // Reference tile → frame index:
+    //   Surface 3×3 (cols 0-2, rows 0-2):
+    //     1→0(TL) 2→1(T) 3→2(TR) / 4→9(L) 5→10(C) 6→11(R) / 7→18(BL) 8→19(B) 9→20(BR)
+    //   Right-edge col (col 3, rows 0-5):
+    //     13→3, 14→12, 15→21, 16→30, 20→39, 24→48
+    //   Cliff rows (cols 0-2, rows 3-5):
+    //     10→27, 11→28, 12→29 / 17→36, 18→37, 19→38 / 21→45, 22→46, 23→47
 
     const isTopEdge = row === bounds.minRow;
     const isBottomEdge = row === bounds.maxRow;
     const isLeftEdge = col === bounds.minCol;
     const isRightEdge = col === bounds.maxCol;
 
-    // Use right-half tiles (with cliff) for bottom/right edges to show elevation
-    // Use left-half tiles (grass only) for top/left edges and center
+    // Corners
+    if (isTopEdge && isLeftEdge) return 0;
+    if (isTopEdge && isRightEdge) return 2;
+    if (isBottomEdge && isLeftEdge) return 18;
+    if (isBottomEdge && isRightEdge) return 20;
 
-    // Bottom edge with cliff face
-    if (isBottomEdge && isLeftEdge) return 45;  // row 5, col 0 — bottom-left cliff
-    if (isBottomEdge && isRightEdge) return 47; // row 5, col 2 — bottom-right cliff
-    if (isBottomEdge) return 46;                // row 5, col 1 — bottom cliff center
-
-    // Right edge with cliff
-    if (isRightEdge && isTopEdge) return 14;    // row 1, col 5 — top-right with cliff
-    if (isRightEdge) return 23;                 // row 2, col 5 — right cliff edge
-
-    // Top edge (grass only)
-    if (isTopEdge && isLeftEdge) return 0;      // row 0, col 0 — top-left corner
-    if (isTopEdge) return 1;                    // row 0, col 1 — top edge
-
-    // Left edge (grass only)
-    if (isLeftEdge) return 9;                   // row 1, col 0 — left edge
+    // Edges
+    if (isTopEdge) return 1;
+    if (isBottomEdge) return 19;
+    if (isLeftEdge) return 9;
+    if (isRightEdge) return 11;
 
     // Center fill
-    return 10;                                  // row 1, col 1 — center grass
+    return 10;
   }
 
   private createFarmPlots(islandBounds: any) {
