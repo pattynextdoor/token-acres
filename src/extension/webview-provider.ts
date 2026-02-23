@@ -92,6 +92,26 @@ export class TokenAcresWebviewProvider implements vscode.WebviewViewProvider {
       case 'map-change':
         // TODO: Implement multi-map system
         break;
+        
+      case 'pawn-withdraw-seeds':
+        this.farmEngine.pawnWithdrawSeeds(message.data.pawnId, message.data.maxSeeds);
+        this.sendUpdate(this.farmEngine.getState());
+        break;
+        
+      case 'pawn-deposit-all':
+        this.farmEngine.pawnDepositAll(message.data.pawnId);
+        this.sendUpdate(this.farmEngine.getState());
+        break;
+        
+      case 'pawn-plant-seed':
+        this.farmEngine.pawnPlantSeed(
+          message.data.pawnId, 
+          message.data.position.x, 
+          message.data.position.y,
+          message.data.seedItemId
+        );
+        this.sendUpdate(this.farmEngine.getState());
+        break;
     }
   }
 

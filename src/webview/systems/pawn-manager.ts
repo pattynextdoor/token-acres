@@ -1,15 +1,18 @@
 import Phaser from 'phaser';
 import { Pawn, PawnState } from '../objects/pawn';
+import { PawnAI } from './pawn-ai';
 
 export class PawnManager {
   private scene: Phaser.Scene;
   private pawns: Map<string, Pawn> = new Map();
   private idleBehaviorTimer = 0;
   private readonly IDLE_BEHAVIOR_INTERVAL = 8000; // 8 seconds
+  private pawnAI: PawnAI;
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
-    console.log('PawnManager initialized');
+    this.pawnAI = new PawnAI(scene);
+    console.log('PawnManager initialized with AI system');
   }
 
   /**
@@ -69,7 +72,10 @@ export class PawnManager {
       pawn.update(delta);
     }
 
-    // Handle idle behaviors
+    // Update AI system
+    this.pawnAI.update(delta, this.pawns);
+
+    // Handle idle behaviors (reduced frequency since AI handles most behavior)
     this.updateIdleBehavior(delta);
   }
 
@@ -291,5 +297,6 @@ export class PawnManager {
       pawn.destroy();
     }
     this.pawns.clear();
+    this.pawnAI.destroy();
   }
 }

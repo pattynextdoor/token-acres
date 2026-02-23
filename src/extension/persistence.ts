@@ -122,7 +122,17 @@ export class PersistenceManager {
         notificationsEnabled: true,
       },
       storehouse: {
-        inventory: [],
+        inventory: [
+          { itemId: 'carrot_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'parsnip_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'potato_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'pepper_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'tomato_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'pumpkin_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'sunflower_seed', quantity: 4, maxStack: 64 },
+          { itemId: 'appletree_seed', quantity: 2, maxStack: 16 },
+          { itemId: 'lemontree_seed', quantity: 2, maxStack: 16 },
+        ],
         capacity: 256,
       },
     };

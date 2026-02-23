@@ -168,6 +168,21 @@ export class BootScene extends Phaser.Scene {
       ss('pawn-yellow-run', 'sprites/pawns/yellow/run.png', 192, 192),
       ss('pawn-yellow-work', 'sprites/pawns/yellow/work.png', 192, 192),
 
+      // Crop sprites (16x16 frames, 80x32 or 80x48 spritesheets)
+      ss('crop-carrot', 'sprites/crops/carrot.png', 16, 16),
+      ss('crop-parsnip', 'sprites/crops/parsnip.png', 16, 16),
+      ss('crop-potato', 'sprites/crops/potato.png', 16, 16),
+      ss('crop-pepper', 'sprites/crops/pepper.png', 16, 16),
+      ss('crop-tomato', 'sprites/crops/tomato.png', 16, 16),
+      ss('crop-pumpkin', 'sprites/crops/pumpkin.png', 16, 16),
+      ss('crop-sunflower', 'sprites/crops/sunflower.png', 16, 16),
+      ss('crop-appletree', 'sprites/crops/appletree.png', 16, 16),
+      ss('crop-lemontree', 'sprites/crops/lemontree.png', 16, 16),
+      ss('crop-dead', 'sprites/crops/dead.png', 16, 16),
+
+      // UI Icons spritesheet
+      ss('ui-icons', 'ui/icons.png', 16, 16),
+
       // Decorations
       img('rock1', 'sprites/decorations/rock1.png'),
       img('rock2', 'sprites/decorations/rock2.png'),

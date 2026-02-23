@@ -14,7 +14,7 @@ export class Crop extends Phaser.GameObjects.Container {
   public cropState: CropState;
   private scene: Phaser.Scene;
   private gridPosition: { col: number; row: number };
-  private cropGraphics: Phaser.GameObjects.Graphics;
+  private cropSprite: Phaser.GameObjects.Sprite;
   private qualityIndicator?: Phaser.GameObjects.Graphics;
   private goldenEffect?: Phaser.GameObjects.Graphics;
   private progressBar?: Phaser.GameObjects.Graphics;
@@ -30,9 +30,11 @@ export class Crop extends Phaser.GameObjects.Container {
     this.gridPosition = { col, row };
     this.setDepth(topDownDepth(col, row, 0.5)); // Behind pawns, above ground
 
-    // Create the main crop graphics
-    this.cropGraphics = scene.add.graphics();
-    this.add(this.cropGraphics);
+    // Create the main crop sprite
+    const spriteKey = this.getSpriteKey(cropState.type);
+    this.cropSprite = scene.add.sprite(0, 0, spriteKey, 0);
+    this.cropSprite.setScale(3); // Scale 16x16 sprites to ~48x48 for visibility
+    this.add(this.cropSprite);
 
     scene.add.existing(this);
 
@@ -69,81 +71,46 @@ export class Crop extends Phaser.GameObjects.Container {
     this.updateVisuals();
   }
 
+  private getSpriteKey(cropType: string): string {
+    // Map crop types to their sprite keys
+    const spriteKeys: Record<string, string> = {
+      'carrot': 'crop-carrot',
+      'parsnip': 'crop-parsnip',
+      'potato': 'crop-potato',
+      'pepper': 'crop-pepper',
+      'tomato': 'crop-tomato',
+      'pumpkin': 'crop-pumpkin',
+      'sunflower': 'crop-sunflower',
+      'appletree': 'crop-appletree',
+      'lemontree': 'crop-lemontree',
+    };
+    return spriteKeys[cropType] || 'crop-potato'; // fallback
+  }
+
   private updateCropGraphics() {
-    this.cropGraphics.clear();
+    if (!this.cropSprite) return;
     
     const stageProgress = this.cropState.stage / this.cropState.maxStages;
-    const stage = Math.floor(stageProgress * 4); // 0-4 stages
+    // Map progress to sprite frames (0-4 for growth stages)
+    let frame = Math.min(4, Math.floor(stageProgress * 5));
     
-    // Base crop colors by type
-    const cropColors = {
-      turnip: { plant: 0x4a7c59, produce: 0xd4a574 },
-      potato: { plant: 0x4a7c59, produce: 0x8b7355 },
-      strawberry: { plant: 0x4a7c59, produce: 0xe74c3c },
-      tomato: { plant: 0x4a7c59, produce: 0xe74c3c },
-      corn: { plant: 0x4a7c59, produce: 0xf1c40f },
-      default: { plant: 0x4a7c59, produce: 0x27ae60 }
-    };
-    
-    const colors = cropColors[this.cropState.type as keyof typeof cropColors] || cropColors.default;
-    
-    // Draw growth stages
-    switch (stage) {
-      case 0: // Seed stage - small brown dot
-        this.cropGraphics.fillStyle(0x8b4513);
-        this.cropGraphics.fillCircle(0, 2, 2);
-        break;
-        
-      case 1: // Sprout stage - small green triangle/stem
-        this.cropGraphics.fillStyle(colors.plant);
-        this.cropGraphics.beginPath();
-        this.cropGraphics.moveTo(-2, 4);
-        this.cropGraphics.lineTo(2, 4);
-        this.cropGraphics.lineTo(0, -2);
-        this.cropGraphics.closePath();
-        this.cropGraphics.fillPath();
-        break;
-        
-      case 2: // Growing stage - taller green shape with leaf
-        this.cropGraphics.fillStyle(colors.plant);
-        // Main stem
-        this.cropGraphics.fillRect(-1, -4, 2, 8);
-        // Leaves
-        this.cropGraphics.fillEllipse(-3, -2, 4, 2);
-        this.cropGraphics.fillEllipse(3, 0, 4, 2);
-        break;
-        
-      case 3: // Mature stage - full plant with colored top
-        this.cropGraphics.fillStyle(colors.plant);
-        // Base plant
-        this.cropGraphics.fillRect(-1, -6, 2, 10);
-        // Leaves
-        this.cropGraphics.fillEllipse(-4, -4, 6, 3);
-        this.cropGraphics.fillEllipse(4, -2, 6, 3);
-        // Produce
-        this.cropGraphics.fillStyle(colors.produce);
-        if (this.cropState.type === 'turnip') {
-          this.cropGraphics.fillEllipse(0, 2, 8, 6); // Underground bulb
-        } else if (this.cropState.type === 'tomato' || this.cropState.type === 'strawberry') {
-          this.cropGraphics.fillCircle(-2, -6, 3);
-          this.cropGraphics.fillCircle(2, -4, 2);
-        } else {
-          this.cropGraphics.fillEllipse(0, -8, 6, 4); // Generic top produce
-        }
-        break;
-        
-      default: // Harvestable (stage 4+) - same as mature but with bounce
-        this.updateCropGraphics(); // Recursively call for stage 3
-        this.startHarvestableAnimation();
-        return;
+    // For harvestable crops, use the final frame
+    if (this.cropState.stage >= this.cropState.maxStages) {
+      frame = 4; // Final growth stage
+      this.startHarvestableAnimation();
     }
     
-    // Golden effect overlay
+    this.cropSprite.setFrame(frame);
+    
+    // Apply golden tint effect
     if (this.cropState.isGolden) {
       const time = this.scene.time.now;
-      const pulseAlpha = 0.3 + 0.2 * Math.sin(time * 0.005);
-      this.cropGraphics.fillStyle(0xffd700, pulseAlpha);
-      this.cropGraphics.fillCircle(0, 0, 10);
+      const pulseIntensity = 0.7 + 0.3 * Math.sin(time * 0.005);
+      this.cropSprite.setTint(0xffd700);
+      this.cropSprite.setAlpha(pulseIntensity);
+    } else {
+      this.cropSprite.clearTint();
+      this.cropSprite.setAlpha(1);
     }
   }
 
@@ -382,7 +349,8 @@ export class Crop extends Phaser.GameObjects.Container {
       this.bounceAnimation.destroy();
     }
     
-    // Clean up graphics
+    // Clean up graphics and sprites
+    this.cropSprite?.destroy();
     this.qualityIndicator?.destroy();
     this.progressBar?.destroy();
     this.goldenEffect?.destroy();

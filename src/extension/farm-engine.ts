@@ -776,4 +776,138 @@ export class FarmEngine extends EventEmitter {
   getSeedCount(): number {
     return this.state.economy.seeds;
   }
+
+  /**
+   * Pawn withdraws seeds from storehouse
+   */
+  pawnWithdrawSeeds(pawnId: string, maxSeeds: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    // Find available seed types in storehouse
+    const availableSeeds = this.state.storehouse.inventory.filter(stack => 
+      stack.itemId.endsWith('_seed') && stack.quantity > 0
+    );
+
+    if (availableSeeds.length === 0) return false;
+
+    let seedsWithdrawn = 0;
+    for (const seedStack of availableSeeds.slice(0, maxSeeds)) {
+      if (seedsWithdrawn >= maxSeeds) break;
+
+      // Withdraw 2-4 seeds of this type
+      const withdrawAmount = Math.min(seedStack.quantity, 2 + Math.floor(Math.random() * 3));
+      
+      const result = InventoryManager.transfer(
+        this.state.storehouse.inventory,
+        pawn.inventory,
+        seedStack.itemId,
+        withdrawAmount,
+        5 // Pawn inventory max slots
+      );
+
+      if (result.processed > 0) {
+        seedsWithdrawn++;
+        this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+        this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+      }
+    }
+
+    console.log(`Pawn ${pawnId} withdrew ${seedsWithdrawn} seed types from storehouse`);
+    return seedsWithdrawn > 0;
+  }
+
+  /**
+   * Pawn plants seed at specific position (from pawn inventory)
+   */
+  pawnPlantSeed(pawnId: string, plotX: number, plotY: number, seedItemId?: string): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    const plot = this.getPlot(plotX, plotY);
+    if (!plot || plot.type !== 'tilled') return false;
+
+    // Find seed to plant
+    let seedToUse: string;
+    if (seedItemId) {
+      // Use specified seed if pawn has it
+      const hasSpecificSeed = InventoryManager.getCount(pawn.inventory, seedItemId) > 0;
+      if (!hasSpecificSeed) return false;
+      seedToUse = seedItemId;
+    } else {
+      // Use any available seed
+      const availableSeeds = pawn.inventory.filter(stack => 
+        stack.itemId.endsWith('_seed') && stack.quantity > 0
+      );
+      if (availableSeeds.length === 0) return false;
+      seedToUse = availableSeeds[0].itemId;
+    }
+
+    // Convert seed item to crop type
+    const cropType = this.seedToCropType(seedToUse);
+    if (!cropType) return false;
+
+    // Check if crop is in season
+    if (!this.isInSeason(cropType, this.state.stats.currentSeason)) {
+      return false;
+    }
+
+    // Remove seed from pawn inventory
+    const removeResult = InventoryManager.removeItem(pawn.inventory, seedToUse, 1);
+    if (!removeResult.success) return false;
+
+    // Plant the crop (similar to plantCrop but free)
+    const cropData = CROP_DATA[cropType];
+    const efficiency = this.scorer.getCurrentEfficiency();
+    const soilBonus = plot.soilHealth > 70 ? 10 : plot.soilHealth < 30 ? -20 : 0;
+    const adjustedEfficiency = Math.max(0, Math.min(100, efficiency + soilBonus));
+    
+    const quality: Grade = adjustedEfficiency >= 80 ? 'S' : 
+                          adjustedEfficiency >= 60 ? 'A' : 
+                          adjustedEfficiency >= 40 ? 'B' : 'C';
+
+    plot.type = 'planted';
+    plot.crop = {
+      type: cropType,
+      stage: 0,
+      maxStages: cropData.stages,
+      quality,
+      isGolden: false,
+      tasksUntilNextStage: cropData.tasksPerStage,
+    };
+
+    // Degrade soil slightly from planting
+    plot.soilHealth = Math.max(0, plot.soilHealth - 5);
+
+    // Assign pawn to this plot for visual work animation
+    pawn.assignedPlot = { x: plotX, y: plotY };
+    pawn.state = 'working';
+
+    this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+    this.emit('crop-planted', { plot, cropType, quality, pawnId });
+
+    console.log(`Pawn ${pawnId} planted ${cropType} at (${plotX}, ${plotY})`);
+    return true;
+  }
+
+  /**
+   * Convert seed item ID to crop type
+   */
+  private seedToCropType(seedItemId: string): CropType | null {
+    const seedToCropMap: Record<string, CropType> = {
+      'carrot_seed': 'carrot',
+      'parsnip_seed': 'parsnip',
+      'potato_seed': 'potato',
+      'pepper_seed': 'pepper',
+      'tomato_seed': 'tomato',
+      'pumpkin_seed': 'pumpkin',
+      'sunflower_seed': 'sunflower',
+      'appletree_seed': 'appletree',
+      'lemontree_seed': 'lemontree',
+      'turnip_seed': 'turnip',
+      'strawberry_seed': 'strawberry',
+      'corn_seed': 'corn',
+    };
+    return seedToCropMap[seedItemId] || null;
+  }
 }

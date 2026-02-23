@@ -307,6 +307,23 @@ export class MapScene extends Phaser.Scene {
       barn.setScale(0.6);
     }
 
+    // Place storehouse (use barn sprite with different position and label)
+    if (this.has('barn')) {
+      const storehousePos = gridToScreen(6, 1);
+      const storehouse = this.add.image(storehousePos.x + 32, storehousePos.y + 32 - 40, 'barn');
+      storehouse.setDepth(5);
+      storehouse.setScale(0.5);
+      storehouse.setTint(0x8B4513); // Brown tint to differentiate from barn
+      
+      // Add storehouse label
+      const label = this.add.text(storehousePos.x + 32, storehousePos.y - 10, 'Storehouse', {
+        fontSize: '10px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(6);
+    }
+
     // Trees
     this.placeTrees(islandBounds);
 
@@ -409,6 +426,9 @@ export class MapScene extends Phaser.Scene {
   }
 
   private setupMessageHandling() {
+    // Store message bridge in registry for pawn AI access
+    this.registry.set('messageBridge', MessageBridge);
+    
     MessageBridge.on('state-update', (farmState) => {
       this.handleStateUpdate(farmState);
     });
@@ -444,6 +464,18 @@ export class MapScene extends Phaser.Scene {
 
     if (this.cropManager && farmState.farm && farmState.farm.plots) {
       this.cropManager.sync(farmState.farm.plots);
+      // Store plot states for pawn AI
+      this.registry.set('plotStates', farmState.farm.plots);
+    }
+
+    // Store storehouse inventory for pawn AI
+    if (farmState.storehouse && farmState.storehouse.inventory) {
+      this.registry.set('storehouseInventory', farmState.storehouse.inventory);
+    }
+
+    // Store buildings for pawn AI (particularly storehouse position)
+    if (farmState.farm && farmState.farm.buildings) {
+      this.registry.set('buildings', farmState.farm.buildings);
     }
 
     if (farmState.player && farmState.player.position) {

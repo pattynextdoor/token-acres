@@ -6,7 +6,8 @@ export type Mood = 'ecstatic' | 'happy' | 'neutral' | 'tired' | 'exhausted';
 export type MapId = 'farm' | 'town';
 export type CropType = 'turnip' | 'potato' | 'strawberry' | 'clover' 
                      | 'tomato' | 'corn' | 'melon' | 'starfruit'
-                     | 'pumpkin' | 'grape' | 'yam' | 'sunflower';
+                     | 'pumpkin' | 'grape' | 'yam' | 'sunflower'
+                     | 'carrot' | 'parsnip' | 'pepper' | 'appletree' | 'lemontree';
 
 // Inventory types
 export interface ItemStack {
@@ -170,7 +171,10 @@ export type WebviewToHost =
   | { type: 'sell'; cropType: CropType; quantity: number }
   | { type: 'buy-upgrade'; upgradeType: string }
   | { type: 'rename-pawn'; pawnId: string; name: string }
-  | { type: 'map-change'; mapId: MapId };
+  | { type: 'map-change'; mapId: MapId }
+  | { type: 'pawn-withdraw-seeds'; data: { pawnId: string; maxSeeds: number } }
+  | { type: 'pawn-deposit-all'; data: { pawnId: string } }
+  | { type: 'pawn-plant-seed'; data: { pawnId: string; position: { x: number; y: number }; seedItemId?: string } };
 
 export const CROP_DATA: Record<CropType, CropConfig> = {
   turnip:     { seasons: ['spring', 'fall'], stages: 4, tasksPerStage: 1, baseSellValue: 5 },
@@ -185,4 +189,9 @@ export const CROP_DATA: Record<CropType, CropConfig> = {
   grape:      { seasons: ['fall'], stages: 5, tasksPerStage: 2, baseSellValue: 18, requiresTrellis: true },
   yam:        { seasons: ['fall'], stages: 4, tasksPerStage: 1, baseSellValue: 10 },
   sunflower:  { seasons: ['fall'], stages: 5, tasksPerStage: 1, baseSellValue: 12, attractsBees: true },
+  carrot:     { seasons: ['spring'], stages: 5, tasksPerStage: 1, baseSellValue: 6 },
+  parsnip:    { seasons: ['fall', 'winter'], stages: 4, tasksPerStage: 1, baseSellValue: 7 },
+  pepper:     { seasons: ['summer'], stages: 5, tasksPerStage: 1, baseSellValue: 14, regrows: 1 },
+  appletree:  { seasons: ['spring', 'fall'], stages: 6, tasksPerStage: 3, baseSellValue: 40, regrows: 2 },
+  lemontree:  { seasons: ['spring', 'summer'], stages: 6, tasksPerStage: 3, baseSellValue: 35, regrows: 2 },
 };

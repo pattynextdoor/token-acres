@@ -64,6 +64,69 @@ export const ITEM_REGISTRY: Record<string, ItemDefinition> = {
     description: 'Tall corn that grows in summer heat.',
     icon: 'seed-corn'
   },
+  'carrot_seed': {
+    id: 'carrot_seed',
+    name: 'Carrot Seeds',
+    category: 'seed',
+    maxStack: 64,
+    sellValue: 2,
+    description: 'Quick-growing orange root vegetables.',
+    icon: 'seed-carrot'
+  },
+  'parsnip_seed': {
+    id: 'parsnip_seed',
+    name: 'Parsnip Seeds',
+    category: 'seed',
+    maxStack: 64,
+    sellValue: 3,
+    description: 'Hardy winter root vegetables.',
+    icon: 'seed-parsnip'
+  },
+  'pepper_seed': {
+    id: 'pepper_seed',
+    name: 'Pepper Seeds',
+    category: 'seed',
+    maxStack: 64,
+    sellValue: 5,
+    description: 'Spicy summer peppers that regrow.',
+    icon: 'seed-pepper'
+  },
+  'pumpkin_seed': {
+    id: 'pumpkin_seed',
+    name: 'Pumpkin Seeds',
+    category: 'seed',
+    maxStack: 64,
+    sellValue: 10,
+    description: 'Large orange pumpkins for fall.',
+    icon: 'seed-pumpkin'
+  },
+  'sunflower_seed': {
+    id: 'sunflower_seed',
+    name: 'Sunflower Seeds',
+    category: 'seed',
+    maxStack: 64,
+    sellValue: 4,
+    description: 'Tall flowers that attract bees.',
+    icon: 'seed-sunflower'
+  },
+  'appletree_seed': {
+    id: 'appletree_seed',
+    name: 'Apple Tree Seedling',
+    category: 'seed',
+    maxStack: 16,
+    sellValue: 15,
+    description: 'Long-term fruit tree investment.',
+    icon: 'seed-appletree'
+  },
+  'lemontree_seed': {
+    id: 'lemontree_seed',
+    name: 'Lemon Tree Seedling',
+    category: 'seed',
+    maxStack: 16,
+    sellValue: 12,
+    description: 'Citrus tree with regular harvests.',
+    icon: 'seed-lemontree'
+  },
 
   // Harvested Crops
   'turnip': {
@@ -165,6 +228,51 @@ export const ITEM_REGISTRY: Record<string, ItemDefinition> = {
     description: 'Bright yellow flowers that attract bees.',
     icon: 'crop-sunflower'
   },
+  'carrot': {
+    id: 'carrot',
+    name: 'Carrot',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 6,
+    description: 'Crunchy orange root vegetable.',
+    icon: 'crop-carrot'
+  },
+  'parsnip': {
+    id: 'parsnip',
+    name: 'Parsnip',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 7,
+    description: 'Sweet winter root vegetable.',
+    icon: 'crop-parsnip'
+  },
+  'pepper': {
+    id: 'pepper',
+    name: 'Pepper',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 14,
+    description: 'Spicy colorful peppers.',
+    icon: 'crop-pepper'
+  },
+  'apple': {
+    id: 'apple',
+    name: 'Apple',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 40,
+    description: 'Fresh crisp apples from the tree.',
+    icon: 'crop-apple'
+  },
+  'lemon': {
+    id: 'lemon',
+    name: 'Lemon',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 35,
+    description: 'Tart citrus lemons.',
+    icon: 'crop-lemon'
+  },
 
   // Golden Variants (rare, high value)
   'golden_turnip': {
@@ -212,6 +320,51 @@ export const ITEM_REGISTRY: Record<string, ItemDefinition> = {
     description: 'Gleaming golden corn kernels.',
     icon: 'crop-corn-golden'
   },
+  'golden_carrot': {
+    id: 'golden_carrot',
+    name: 'Golden Carrot',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 18,
+    description: 'Brilliant golden carrots.',
+    icon: 'crop-carrot-golden'
+  },
+  'golden_parsnip': {
+    id: 'golden_parsnip',
+    name: 'Golden Parsnip',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 21,
+    description: 'Radiant golden parsnips.',
+    icon: 'crop-parsnip-golden'
+  },
+  'golden_pepper': {
+    id: 'golden_pepper',
+    name: 'Golden Pepper',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 42,
+    description: 'Precious golden peppers.',
+    icon: 'crop-pepper-golden'
+  },
+  'golden_apple': {
+    id: 'golden_apple',
+    name: 'Golden Apple',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 120,
+    description: 'Legendary golden apples.',
+    icon: 'crop-apple-golden'
+  },
+  'golden_lemon': {
+    id: 'golden_lemon',
+    name: 'Golden Lemon',
+    category: 'crop',
+    maxStack: 64,
+    sellValue: 105,
+    description: 'Gleaming golden citrus.',
+    icon: 'crop-lemon-golden'
+  },
 
   // Special crops
   'clover': {
@@ -250,12 +403,21 @@ export function cropToHarvestItem(cropType: string, isGolden: boolean = false): 
       'strawberry': 'golden_strawberry',
       'tomato': 'golden_tomato',
       'corn': 'golden_corn',
+      'carrot': 'golden_carrot',
+      'parsnip': 'golden_parsnip',
+      'pepper': 'golden_pepper',
+      'appletree': 'golden_apple',
+      'lemontree': 'golden_lemon',
     };
     return goldenMapping[cropType] || cropType;
   }
   
-  // Regular crop to item mapping (most are 1:1)
-  return cropType;
+  // Regular crop to item mapping - trees produce different items
+  const cropMapping: Record<string, string> = {
+    'appletree': 'apple',
+    'lemontree': 'lemon',
+  };
+  return cropMapping[cropType] || cropType;
 }
 
 /**
