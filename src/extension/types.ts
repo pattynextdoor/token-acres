@@ -8,6 +8,13 @@ export type CropType = 'turnip' | 'potato' | 'strawberry' | 'clover'
                      | 'tomato' | 'corn' | 'melon' | 'starfruit'
                      | 'pumpkin' | 'grape' | 'yam' | 'sunflower';
 
+// Inventory types
+export interface ItemStack {
+  itemId: string;        // e.g. 'turnip_seed', 'turnip', 'strawberry', 'milk'
+  quantity: number;      // how many in this stack
+  maxStack: number;      // max per stack (from ItemDefinition)
+}
+
 export interface FarmState {
   version: number;
   farm: {
@@ -34,6 +41,10 @@ export interface FarmState {
     seasonLengthDays: number;
     soundEnabled: boolean;
     notificationsEnabled: boolean;
+  };
+  storehouse: {
+    inventory: ItemStack[];  // max 256 stacks
+    capacity: number;        // 256
   };
 }
 
@@ -69,6 +80,7 @@ export interface PawnState {
   position: { x: number; y: number };
   assignedPlot?: { x: number; y: number };
   agentSessionId?: string;
+  inventory: ItemStack[];  // max 5 stacks
 }
 
 export interface PlayerState {
@@ -146,7 +158,9 @@ export type HostToWebview =
   | { type: 'crop-harvested'; data: { plot: { x: number; y: number }; cropType: CropType; value: number; isGolden: boolean } }
   | { type: 'season-change'; data: { season: Season } }
   | { type: 'event'; data: FarmEvent }
-  | { type: 'inspect-result'; data: InspectInfo };
+  | { type: 'inspect-result'; data: InspectInfo }
+  | { type: 'storehouse-update'; data: { inventory: ItemStack[] } }
+  | { type: 'pawn-inventory-update'; data: { pawnId: string; inventory: ItemStack[] } };
 
 export type WebviewToHost =
   | { type: 'ready'; mapId?: MapId }

@@ -2,6 +2,12 @@ import Phaser from 'phaser';
 import { gridToScreen, isoDepth } from '../utils/isometric';
 import { findPath } from '../utils/pathfinding';
 
+export interface ItemStack {
+  itemId: string;
+  quantity: number;
+  maxStack: number;
+}
+
 export interface PawnState {
   id: string;
   name: string;
@@ -11,6 +17,7 @@ export interface PawnState {
   position: { x: number; y: number };
   assignedPlot?: { x: number; y: number };
   agentSessionId?: string;
+  inventory: ItemStack[];
 }
 
 export class Pawn extends Phaser.GameObjects.Sprite {
@@ -22,6 +29,7 @@ export class Pawn extends Phaser.GameObjects.Sprite {
   private scene: Phaser.Scene;
   private nameText: Phaser.GameObjects.Text;
   private moodIndicator: Phaser.GameObjects.Graphics;
+  private inventoryIndicator: Phaser.GameObjects.Text;
 
   constructor(scene: Phaser.Scene, state: PawnState) {
     const pos = gridToScreen(state.position.x, state.position.y);
@@ -48,8 +56,17 @@ export class Pawn extends Phaser.GameObjects.Sprite {
     this.moodIndicator = scene.add.graphics();
     this.moodIndicator.setDepth(this.depth + 1);
 
+    // Create inventory indicator (item count badge)
+    this.inventoryIndicator = scene.add.text(pos.x + 15, pos.y - 30, '', {
+      fontSize: '8px',
+      color: '#ffffff',
+      backgroundColor: '#333333',
+      padding: { x: 2, y: 1 }
+    }).setOrigin(0.5).setDepth(this.depth + 2);
+
     this.createAnimations();
     this.updateMoodIndicator();
+    this.updateInventoryIndicator();
     this.updateAnimation();
 
     console.log(`Pawn ${state.name} (${state.factionColor}) created at (${state.position.x}, ${state.position.y})`);
@@ -118,6 +135,7 @@ export class Pawn extends Phaser.GameObjects.Sprite {
     // Update visual elements
     this.nameText.setText(newState.name);
     this.updateMoodIndicator();
+    this.updateInventoryIndicator();
   }
 
   /**
@@ -206,6 +224,28 @@ export class Pawn extends Phaser.GameObjects.Sprite {
     this.moodIndicator.fillCircle(this.x + 12, this.y - 25, 3);
   }
 
+  private updateInventoryIndicator() {
+    const inventory = this.pawnState.inventory || [];
+    const totalItems = inventory.reduce((sum, stack) => sum + stack.quantity, 0);
+    const usedSlots = inventory.length;
+    
+    if (totalItems > 0) {
+      this.inventoryIndicator.setText(`${totalItems}`);
+      this.inventoryIndicator.setVisible(true);
+      
+      // Change color based on how full inventory is
+      if (usedSlots >= 5) {
+        this.inventoryIndicator.setStyle({ backgroundColor: '#cc3333' }); // Full - red
+      } else if (usedSlots >= 3) {
+        this.inventoryIndicator.setStyle({ backgroundColor: '#cc8833' }); // Mostly full - orange
+      } else {
+        this.inventoryIndicator.setStyle({ backgroundColor: '#333333' }); // Normal - dark
+      }
+    } else {
+      this.inventoryIndicator.setVisible(false);
+    }
+  }
+
   update(delta: number) {
     this.updateMovement(delta);
     this.updateVisualElements();
@@ -252,6 +292,9 @@ export class Pawn extends Phaser.GameObjects.Sprite {
     // Update name text position
     this.nameText.setPosition(this.x, this.y - 20);
 
+    // Update inventory indicator position
+    this.inventoryIndicator.setPosition(this.x + 15, this.y - 30);
+
     // Update mood indicator position
     this.moodIndicator.setPosition(0, 0); // Reset transform
     this.updateMoodIndicator(); // Redraw at current position
@@ -286,6 +329,7 @@ export class Pawn extends Phaser.GameObjects.Sprite {
   destroy(fromScene?: boolean) {
     this.nameText.destroy();
     this.moodIndicator.destroy();
+    this.inventoryIndicator.destroy();
     super.destroy(fromScene);
   }
 }
