@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { gridToScreen, isoDepth } from '../utils/isometric';
+import { gridToScreen, topDownDepth } from '../utils/grid';
 
 export interface CropState {
   type: string;
@@ -23,12 +23,12 @@ export class Crop extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, col: number, row: number, cropState: CropState) {
     const pos = gridToScreen(col, row);
     
-    super(scene, pos.x, pos.y);
+    super(scene, pos.x + 32, pos.y + 32); // Center on tile
     
     this.scene = scene;
     this.cropState = cropState;
     this.gridPosition = { col, row };
-    this.setDepth(isoDepth(col, row, 0.5)); // Behind pawns, above ground
+    this.setDepth(topDownDepth(col, row, 0.5)); // Behind pawns, above ground
 
     // Create the main crop graphics
     this.cropGraphics = scene.add.graphics();

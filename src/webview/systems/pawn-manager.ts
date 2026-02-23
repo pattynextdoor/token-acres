@@ -103,8 +103,8 @@ export class PawnManager {
    * Play spawn animation for new pawn
    */
   private playSpawnAnimation(pawn: Pawn, finalPosition: { x: number; y: number }) {
-    // Start small and scale up (remember pawns are scaled to 0.35)
-    const targetScale = 0.35;
+    // Start small and scale up (remember pawns are scaled to 0.5 for top-down)
+    const targetScale = 0.5;
     pawn.setScale(0.1);
     pawn.setAlpha(0.5);
 

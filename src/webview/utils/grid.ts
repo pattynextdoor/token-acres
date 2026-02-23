@@ -1,16 +1,12 @@
-// Isometric coordinate conversion utilities
+// Top-down grid coordinate conversion utilities
 
-const TILE_WIDTH = 64;   // Isometric tile width in pixels
-const TILE_HEIGHT = 32;  // Isometric tile height in pixels
+const TILE_SIZE = 64; // Each tile is 64x64 pixels
 
 /**
  * Convert grid (col, row) to screen (x, y) pixel position.
  */
 export function gridToScreen(col: number, row: number): { x: number; y: number } {
-  return {
-    x: (col - row) * (TILE_WIDTH / 2),
-    y: (col + row) * (TILE_HEIGHT / 2),
-  };
+  return { x: col * TILE_SIZE, y: row * TILE_SIZE };
 }
 
 /**
@@ -18,17 +14,17 @@ export function gridToScreen(col: number, row: number): { x: number; y: number }
  */
 export function screenToGrid(x: number, y: number): { col: number; row: number } {
   return {
-    col: Math.round((x / (TILE_WIDTH / 2) + y / (TILE_HEIGHT / 2)) / 2),
-    row: Math.round((y / (TILE_HEIGHT / 2) - x / (TILE_WIDTH / 2)) / 2),
+    col: Math.floor(x / TILE_SIZE),
+    row: Math.floor(y / TILE_SIZE),
   };
 }
 
 /**
- * Calculate depth value for isometric sorting.
- * Objects with higher depth appear in front of objects with lower depth.
+ * Calculate depth value for top-down sorting.
+ * Objects lower on screen (higher y) appear in front.
  */
-export function isoDepth(col: number, row: number, zOffset: number = 0): number {
-  return (col + row) * 10 + zOffset;
+export function topDownDepth(col: number, row: number, zOffset: number = 0): number {
+  return row * 10 + zOffset;
 }
 
 /**
@@ -37,8 +33,8 @@ export function isoDepth(col: number, row: number, zOffset: number = 0): number 
 export function getTileCenter(col: number, row: number): { x: number; y: number } {
   const screenPos = gridToScreen(col, row);
   return {
-    x: screenPos.x,
-    y: screenPos.y + TILE_HEIGHT / 4, // Offset to visual center of tile
+    x: screenPos.x + TILE_SIZE / 2,
+    y: screenPos.y + TILE_SIZE / 2,
   };
 }
 
@@ -46,12 +42,13 @@ export function getTileCenter(col: number, row: number): { x: number; y: number 
  * Check if a screen position is within a tile's bounds
  */
 export function isPointInTile(screenX: number, screenY: number, tileCol: number, tileRow: number): boolean {
-  const tileCenter = getTileCenter(tileCol, tileRow);
-  const dx = Math.abs(screenX - tileCenter.x);
-  const dy = Math.abs(screenY - tileCenter.y);
-  
-  // Simple diamond-shaped hit test for isometric tiles
-  return (dx / (TILE_WIDTH / 2) + dy / (TILE_HEIGHT / 2)) <= 1;
+  const tilePos = gridToScreen(tileCol, tileRow);
+  return (
+    screenX >= tilePos.x &&
+    screenX < tilePos.x + TILE_SIZE &&
+    screenY >= tilePos.y &&
+    screenY < tilePos.y + TILE_SIZE
+  );
 }
 
 /**
@@ -77,16 +74,6 @@ export function getTilesInRadius(centerCol: number, centerRow: number, radius: n
  */
 export function manhattanDistance(col1: number, row1: number, col2: number, row2: number): number {
   return Math.abs(col1 - col2) + Math.abs(row1 - row2);
-}
-
-/**
- * Convert isometric movement vector to screen movement
- */
-export function isoMovementToScreen(isoX: number, isoY: number): { x: number; y: number } {
-  return {
-    x: (isoX - isoY) * (TILE_WIDTH / 2),
-    y: (isoX + isoY) * (TILE_HEIGHT / 2),
-  };
 }
 
 /**
@@ -125,4 +112,4 @@ export function generateFarmWalkableGrid(
   return grid;
 }
 
-export { TILE_WIDTH, TILE_HEIGHT };
+export { TILE_SIZE };
