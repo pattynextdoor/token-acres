@@ -18,21 +18,22 @@ export class CameraController {
   }
 
   private setupCamera() {
-    // Set camera bounds to encompass the farm area
-    // For 8x8 farm with 64x32 isometric tiles
-    const farmSize = this.scene.registry.get('gridSize') || 8;
+    // Set camera bounds to encompass the rectangular farm area
+    const farmSize = this.scene.registry.get('gridSize') || 16;
+    const worldWidth = farmSize * 64;
+    const worldHeight = farmSize * 64;
     const bounds = {
-      x: -400,
-      y: -300,
-      width: 800 + (farmSize * 64),
-      height: 600 + (farmSize * 32),
+      x: 0,
+      y: 0,
+      width: worldWidth,
+      height: worldHeight,
     };
     
     this.camera.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
     this.camera.setZoom(this.zoomLevel);
     
     // Center camera on farm initially
-    this.camera.centerOn(0, 0);
+    this.camera.centerOn(worldWidth / 2, worldHeight / 2);
   }
 
   private setupInput() {

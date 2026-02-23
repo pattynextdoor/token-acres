@@ -32,7 +32,7 @@ export function findPath(
   }
 
   // Can't path to unwalkable tile
-  if (!walkableGrid[goal.col][goal.row]) {
+  if (!walkableGrid[goal.row][goal.col]) {
     return []; // Goal is not walkable
   }
 
@@ -85,7 +85,7 @@ export function findPath(
       }
 
       // Skip if not walkable
-      if (!walkableGrid[neighbor.col][neighbor.row]) {
+      if (!walkableGrid[neighbor.row][neighbor.col]) {
         continue;
       }
 

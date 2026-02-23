@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { gridToScreen, isoDepth } from '../utils/isometric';
+import { gridToScreen, topDownDepth } from '../utils/grid';
 import { findPath } from '../utils/pathfinding';
 
 export interface ItemStack {
@@ -33,14 +33,14 @@ export class Pawn extends Phaser.GameObjects.Sprite {
 
   constructor(scene: Phaser.Scene, state: PawnState) {
     const pos = gridToScreen(state.position.x, state.position.y);
-    super(scene, pos.x, pos.y, `pawn-${state.factionColor}-idle`);
+    super(scene, pos.x + 32, pos.y + 32, `pawn-${state.factionColor}-idle`); // Center on tile
     
     this.scene = scene;
     this.pawnState = state;
-    this.setDepth(isoDepth(state.position.x, state.position.y, 1));
+    this.setDepth(topDownDepth(state.position.x, state.position.y, 1));
 
-    // Scale down the 192px sprites to fit the 64px tile grid
-    this.setScale(0.35);
+    // Scale down the 192px sprites to fit the 64px tile grid appropriately for top-down view
+    this.setScale(0.5);
 
     scene.add.existing(this);
 
@@ -265,7 +265,7 @@ export class Pawn extends Phaser.GameObjects.Sprite {
     if (distance < 2) {
       // Arrived at current waypoint
       this.pawnState.position = { x: target.col, y: target.row };
-      this.setDepth(isoDepth(target.col, target.row, 1));
+      this.setDepth(topDownDepth(target.col, target.row, 1));
       this.pathIndex++;
 
       if (this.pathIndex >= this.path.length) {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { gridToScreen, screenToGrid, isoDepth, TILE_WIDTH, TILE_HEIGHT } from '../utils/isometric';
+import { gridToScreen, screenToGrid, topDownDepth, TILE_SIZE } from '../utils/grid';
 
 export class PlayerController {
   public sprite: Phaser.GameObjects.Sprite;
@@ -23,11 +23,11 @@ export class PlayerController {
 
     // Create player sprite using blue pawn as base
     const startPos = gridToScreen(startCol, startRow);
-    this.sprite = scene.add.sprite(startPos.x, startPos.y, 'player-idle');
-    this.sprite.setDepth(isoDepth(startCol, startRow, 2)); // Above pawns and crops
+    this.sprite = scene.add.sprite(startPos.x + 32, startPos.y + 32, 'player-idle'); // Center on tile
+    this.sprite.setDepth(topDownDepth(startCol, startRow, 2)); // Above pawns and crops
     
-    // Scale down the 192px sprites to fit the 64px tile grid
-    this.sprite.setScale(0.35);
+    // Scale down the 192px sprites to fit the 64px tile grid appropriately for top-down view
+    this.sprite.setScale(0.5);
 
     // Setup input
     this.setupInput();
@@ -84,26 +84,22 @@ export class PlayerController {
   private handleKeyboardInput(delta: number) {
     if (!this.cursors || !this.wasdKeys || this.targetPosition) return;
 
-    // Isometric movement: W = up-left, S = down-right, A = down-left, D = up-right
+    // Top-down movement: W = up(-y), S = down(+y), A = left(-x), D = right(+x)
     let moveX = 0;
     let moveY = 0;
     const speed = this.moveSpeed * (delta / 1000);
 
     if (this.cursors.up.isDown || this.wasdKeys.W.isDown) {
-      moveX -= speed * 0.5;
-      moveY -= speed * 0.25;
+      moveY -= speed;
     }
     if (this.cursors.down.isDown || this.wasdKeys.S.isDown) {
-      moveX += speed * 0.5;
-      moveY += speed * 0.25;
+      moveY += speed;
     }
     if (this.cursors.left.isDown || this.wasdKeys.A.isDown) {
-      moveX -= speed * 0.5;
-      moveY += speed * 0.25;
+      moveX -= speed;
     }
     if (this.cursors.right.isDown || this.wasdKeys.D.isDown) {
-      moveX += speed * 0.5;
-      moveY -= speed * 0.25;
+      moveX += speed;
     }
 
     if (moveX !== 0 || moveY !== 0) {
@@ -111,8 +107,8 @@ export class PlayerController {
       this.sprite.x += moveX;
       this.sprite.y += moveY;
 
-      // Update grid position
-      const newGrid = screenToGrid(this.sprite.x, this.sprite.y);
+      // Update grid position (account for centered sprite positioning)
+      const newGrid = screenToGrid(this.sprite.x - 32, this.sprite.y - 32);
       if (newGrid.col !== this.gridPosition.col || newGrid.row !== this.gridPosition.row) {
         this.gridPosition = { col: newGrid.col, row: newGrid.row };
         this.notifyPositionChange();
@@ -163,8 +159,8 @@ export class PlayerController {
         this.sprite.play('player-run-anim');
       }
 
-      // Update grid position
-      const newGrid = screenToGrid(this.sprite.x, this.sprite.y);
+      // Update grid position (account for centered sprite positioning)
+      const newGrid = screenToGrid(this.sprite.x - 32, this.sprite.y - 32);
       if (newGrid.col !== this.gridPosition.col || newGrid.row !== this.gridPosition.row) {
         this.gridPosition = { col: newGrid.col, row: newGrid.row };
         this.notifyPositionChange();
@@ -173,8 +169,8 @@ export class PlayerController {
   }
 
   private updateDepthSorting() {
-    // Update depth based on current position for isometric sorting
-    this.sprite.setDepth(isoDepth(this.gridPosition.col, this.gridPosition.row, 2));
+    // Update depth based on current position for top-down sorting
+    this.sprite.setDepth(topDownDepth(this.gridPosition.col, this.gridPosition.row, 2));
   }
 
   private notifyPositionChange() {
@@ -200,7 +196,7 @@ export class PlayerController {
    */
   moveToGrid(col: number, row: number) {
     const targetScreen = gridToScreen(col, row);
-    this.targetPosition = { x: targetScreen.x, y: targetScreen.y };
+    this.targetPosition = { x: targetScreen.x + 32, y: targetScreen.y + 32 }; // Center on tile
   }
 
   /**
@@ -217,8 +213,8 @@ export class PlayerController {
     // Smoothly tween to new position instead of snapping
     this.scene.tweens.add({
       targets: this.sprite,
-      x: screenPos.x,
-      y: screenPos.y,
+      x: screenPos.x + 32,
+      y: screenPos.y + 32,
       duration: 300,
       ease: 'Power2',
     });

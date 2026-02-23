@@ -5,7 +5,7 @@ import { PawnManager } from '../systems/pawn-manager';
 import { CropManager } from '../systems/crop-manager';
 import { CameraController } from '../systems/camera';
 import { DayNightSystem } from '../systems/day-night';
-import { gridToScreen, generateFarmWalkableGrid } from '../utils/isometric';
+import { gridToScreen, generateFarmWalkableGrid } from '../utils/grid';
 
 export class MapScene extends Phaser.Scene {
   private playerController?: PlayerController;
@@ -80,7 +80,7 @@ export class MapScene extends Phaser.Scene {
       }
     }
 
-    // Create the elevated island farm
+    // Create the rectangular farm layout (converted from isometric)
     this.createWaterBackground();
     this.createElevatedIsland();
     this.createWaterFoam();
@@ -97,21 +97,21 @@ export class MapScene extends Phaser.Scene {
     const gridSize = this.registry.get('gridSize') || 16;
 
     if (this.has('water-bg')) {
-      // Tile water background across entire game area
+      // Tile water background across entire rectangular game area
       for (let row = 0; row < gridSize; row++) {
         for (let col = 0; col < gridSize; col++) {
           const screenPos = gridToScreen(col, row);
-          const waterBg = this.add.image(screenPos.x, screenPos.y, 'water-bg');
+          const waterBg = this.add.image(screenPos.x + 32, screenPos.y + 32, 'water-bg'); // Center on tile
           waterBg.setDepth(-20);
         }
       }
     } else {
       // Fallback: teal background rectangle
-      const topLeft = gridToScreen(0, 0);
-      const bottomRight = gridToScreen(gridSize, gridSize);
+      const worldWidth = gridSize * 64;
+      const worldHeight = gridSize * 64;
       const bg = this.add.graphics();
       bg.fillStyle(0x4a9e9e);
-      bg.fillRect(topLeft.x - 600, topLeft.y - 200, 1800, 1200);
+      bg.fillRect(0, 0, worldWidth, worldHeight);
       bg.setDepth(-20);
     }
   }
@@ -130,22 +130,16 @@ export class MapScene extends Phaser.Scene {
 
         if (useRealTiles) {
           const tileIndex = this.getElevatedTileIndex(col, row, islandBounds);
-          const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-elevated');
+          const grassTile = this.add.image(screenPos.x + 32, screenPos.y + 32, 'terrain-elevated'); // Center on tile
           grassTile.setFrame(tileIndex);
           grassTile.setDepth(-5);
         } else {
-          // Fallback: draw green isometric diamond
+          // Fallback: draw green rectangular tile
           const isEdge = row === islandBounds.minRow || row === islandBounds.maxRow ||
                          col === islandBounds.minCol || col === islandBounds.maxCol;
           const grass = this.add.graphics();
           grass.fillStyle(isEdge ? 0x4a8c3f : 0x5a9c4f);
-          grass.beginPath();
-          grass.moveTo(screenPos.x, screenPos.y - 16);
-          grass.lineTo(screenPos.x + 32, screenPos.y);
-          grass.lineTo(screenPos.x, screenPos.y + 16);
-          grass.lineTo(screenPos.x - 32, screenPos.y);
-          grass.closePath();
-          grass.fill();
+          grass.fillRect(screenPos.x, screenPos.y, 64, 64);
           grass.setDepth(-5);
         }
       }
@@ -210,7 +204,8 @@ export class MapScene extends Phaser.Scene {
         const screenPos = gridToScreen(col, row);
         const tilledOverlay = this.add.graphics();
         tilledOverlay.fillStyle(0x8B4513, 0.8);
-        tilledOverlay.fillEllipse(screenPos.x, screenPos.y, 60, 30);
+        // Rectangular tilled plot instead of ellipse
+        tilledOverlay.fillRect(screenPos.x + 8, screenPos.y + 8, 48, 48);
         tilledOverlay.setDepth(-4);
       }
     }
@@ -233,7 +228,7 @@ export class MapScene extends Phaser.Scene {
 
     foamPositions.forEach((pos, index) => {
       const screenPos = gridToScreen(pos.col, pos.row);
-      const foam = this.add.sprite(screenPos.x, screenPos.y, 'water-foam');
+      const foam = this.add.sprite(screenPos.x + 32, screenPos.y + 32, 'water-foam'); // Center on tile
       foam.setDepth(-10);
       foam.setScale(0.3);
       foam.play({ key: 'water-foam-anim', delay: index * 100 });
@@ -246,7 +241,7 @@ export class MapScene extends Phaser.Scene {
     // Place house
     if (this.has('house')) {
       const housePos = gridToScreen(4, 5);
-      const house = this.add.image(housePos.x, housePos.y - 30, 'house');
+      const house = this.add.image(housePos.x + 32, housePos.y + 32 - 30, 'house'); // Center on tile
       house.setDepth(5);
       house.setScale(0.8);
     }
@@ -254,7 +249,7 @@ export class MapScene extends Phaser.Scene {
     // Place barn
     if (this.has('barn')) {
       const barnPos = gridToScreen(11, 6);
-      const barn = this.add.image(barnPos.x, barnPos.y - 40, 'barn');
+      const barn = this.add.image(barnPos.x + 32, barnPos.y + 32 - 40, 'barn'); // Center on tile
       barn.setDepth(5);
       barn.setScale(0.6);
     }
@@ -279,7 +274,7 @@ export class MapScene extends Phaser.Scene {
     treePositions.forEach(tree => {
       if (!this.has(tree.type)) return;
       const screenPos = gridToScreen(tree.col, tree.row);
-      const treeSprite = this.add.sprite(screenPos.x, screenPos.y - 40, tree.type);
+      const treeSprite = this.add.sprite(screenPos.x + 32, screenPos.y + 32 - 40, tree.type); // Center on tile
       treeSprite.setDepth(8);
       treeSprite.setScale(0.4);
       const animKey = `${tree.type}-sway`;
@@ -301,7 +296,7 @@ export class MapScene extends Phaser.Scene {
     decorations.forEach(deco => {
       if (!this.has(deco.type)) return;
       const screenPos = gridToScreen(deco.col, deco.row);
-      const decoration = this.add.image(screenPos.x, screenPos.y, deco.type);
+      const decoration = this.add.image(screenPos.x + 32, screenPos.y + 32, deco.type); // Center on tile
       decoration.setDepth(2);
       decoration.setScale(0.5);
     });
@@ -318,7 +313,7 @@ export class MapScene extends Phaser.Scene {
     waterRocks.forEach(rock => {
       if (!this.has(rock.type)) return;
       const screenPos = gridToScreen(rock.col, rock.row);
-      const waterRock = this.add.image(screenPos.x, screenPos.y, rock.type);
+      const waterRock = this.add.image(screenPos.x + 32, screenPos.y + 32, rock.type); // Center on tile
       waterRock.setDepth(-8);
       waterRock.setScale(0.6);
     });
@@ -326,7 +321,7 @@ export class MapScene extends Phaser.Scene {
     // Rubber duck easter egg
     if (this.has('rubber-duck')) {
       const duckPos = gridToScreen(15, 5);
-      const duck = this.add.image(duckPos.x, duckPos.y, 'rubber-duck');
+      const duck = this.add.image(duckPos.x + 32, duckPos.y + 32, 'rubber-duck'); // Center on tile
       duck.setDepth(-7);
       duck.setScale(0.8);
     }
@@ -378,10 +373,11 @@ export class MapScene extends Phaser.Scene {
   private setupCamera() {
     const gridSize = this.registry.get('gridSize') || 16;
     const worldWidth = gridSize * 64;
-    const worldHeight = gridSize * 32;
+    const worldHeight = gridSize * 64; // Square world for top-down view
 
-    this.physics.world.setBounds(-worldWidth/2, -worldHeight/2, worldWidth * 2, worldHeight * 2);
-    this.cameras.main.setBounds(-worldWidth/2, -worldHeight/2, worldWidth * 2, worldHeight * 2);
+    // Set world and camera bounds to the rectangular world
+    this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
+    this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
 
     if (this.playerController && this.cameraController) {
       this.cameraController.followPlayer(this.playerController.sprite);

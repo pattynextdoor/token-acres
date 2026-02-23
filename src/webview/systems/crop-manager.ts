@@ -87,8 +87,8 @@ export class CropManager {
   private updatePlotIndicator(plot: PlotState) {
     const key = `${plot.x},${plot.y}`;
     const gridToScreen = (col: number, row: number) => ({
-      x: (col - row) * 32,
-      y: (col + row) * 16,
+      x: col * 64,
+      y: row * 64,
     });
     const pos = gridToScreen(plot.x, plot.y);
 
@@ -119,7 +119,7 @@ export class CropManager {
         }
         
         indicator.fillStyle(soilColor, soilAlpha);
-        indicator.fillRect(pos.x - 24, pos.y - 12, 48, 24);
+        indicator.fillRect(pos.x, pos.y, 64, 64);
         
         // Health indicator bar at top of plot
         const healthWidth = (plot.soilHealth / 100) * 44;
@@ -128,46 +128,46 @@ export class CropManager {
         
         // Background bar
         indicator.fillStyle(0x2c3e50, 0.6);
-        indicator.fillRect(pos.x - 22, pos.y - 14, 44, 3);
+        indicator.fillRect(pos.x + 10, pos.y - 5, 44, 3);
         
         // Health bar
         indicator.fillStyle(healthColor, 0.8);
-        indicator.fillRect(pos.x - 22, pos.y - 14, healthWidth, 3);
+        indicator.fillRect(pos.x + 10, pos.y - 5, healthWidth, 3);
         break;
         
       case 'water':
         // Blue water
         indicator.fillStyle(0x3498db, 0.8);
-        indicator.fillRect(pos.x - 24, pos.y - 12, 48, 24);
+        indicator.fillRect(pos.x, pos.y, 64, 64);
         
         // Subtle wave animation
         const time = this.scene.time.now * 0.002;
         indicator.fillStyle(0x5dade2, 0.4);
-        indicator.fillRect(pos.x - 24, pos.y - 12 + Math.sin(time) * 2, 48, 8);
+        indicator.fillRect(pos.x, pos.y + Math.sin(time) * 2, 64, 20);
         break;
         
       case 'path':
         // Stone path
         indicator.fillStyle(0x95a5a6, 0.9);
-        indicator.fillRect(pos.x - 24, pos.y - 12, 48, 24);
+        indicator.fillRect(pos.x, pos.y, 64, 64);
         break;
         
       case 'empty':
         // Just grass - subtle green tint
         indicator.fillStyle(0x27ae60, 0.1);
-        indicator.fillRect(pos.x - 24, pos.y - 12, 48, 24);
+        indicator.fillRect(pos.x, pos.y, 64, 64);
         break;
     }
 
     // Add hover detection for plot interaction
     if (plot.type === 'tilled' && !plot.crop) {
       // Show plantable indicator on hover
-      indicator.setInteractive(new Phaser.Geom.Rectangle(pos.x - 24, pos.y - 12, 48, 24), 
+      indicator.setInteractive(new Phaser.Geom.Rectangle(pos.x, pos.y, 64, 64), 
         Phaser.Geom.Rectangle.Contains);
       
       indicator.on('pointerover', () => {
         indicator.lineStyle(2, 0xf1c40f, 0.8);
-        indicator.strokeRect(pos.x - 24, pos.y - 12, 48, 24);
+        indicator.strokeRect(pos.x, pos.y, 64, 64);
       });
       
       indicator.on('pointerout', () => {
@@ -193,8 +193,8 @@ export class CropManager {
    */
   private createPlantingEffect(col: number, row: number) {
     const gridToScreen = (c: number, r: number) => ({
-      x: (c - r) * 32,
-      y: (c + r) * 16,
+      x: c * 64 + 32,
+      y: r * 64 + 32,
     });
     const pos = gridToScreen(col, row);
 
@@ -225,8 +225,8 @@ export class CropManager {
    */
   private createHarvestEffect(col: number, row: number, cropState: CropState) {
     const gridToScreen = (c: number, r: number) => ({
-      x: (c - r) * 32,
-      y: (c + r) * 16,
+      x: c * 64 + 32,
+      y: r * 64 + 32,
     });
     const pos = gridToScreen(col, row);
 
