@@ -64,7 +64,22 @@ export class MapScene extends Phaser.Scene {
     }
   }
 
+  /** Check if a texture loaded successfully */
+  private has(key: string): boolean {
+    return this.textures.exists(key) && key !== '__MISSING';
+  }
+
   private createTilemap() {
+    // Add frames to terrain-elevated tileset (576x384 = 9x6 grid of 64x64 tiles)
+    if (this.has('terrain-elevated')) {
+      const tex = this.textures.get('terrain-elevated');
+      for (let row = 0; row < 6; row++) {
+        for (let col = 0; col < 9; col++) {
+          tex.add(row * 9 + col, 0, col * 64, row * 64, 64, 64);
+        }
+      }
+    }
+
     // Create the elevated island farm
     this.createWaterBackground();
     this.createElevatedIsland();
@@ -80,75 +95,109 @@ export class MapScene extends Phaser.Scene {
 
   private createWaterBackground() {
     const gridSize = this.registry.get('gridSize') || 16;
-    
-    // Create water background tiling across entire game area
-    for (let row = 0; row < gridSize; row++) {
-      for (let col = 0; col < gridSize; col++) {
-        const screenPos = gridToScreen(col, row);
-        const waterBg = this.add.image(screenPos.x, screenPos.y, 'water-bg');
-        waterBg.setDepth(-20); // Lowest layer
+
+    if (this.has('water-bg')) {
+      // Tile water background across entire game area
+      for (let row = 0; row < gridSize; row++) {
+        for (let col = 0; col < gridSize; col++) {
+          const screenPos = gridToScreen(col, row);
+          const waterBg = this.add.image(screenPos.x, screenPos.y, 'water-bg');
+          waterBg.setDepth(-20);
+        }
       }
+    } else {
+      // Fallback: teal background rectangle
+      const topLeft = gridToScreen(0, 0);
+      const bottomRight = gridToScreen(gridSize, gridSize);
+      const bg = this.add.graphics();
+      bg.fillStyle(0x4a9e9e);
+      bg.fillRect(topLeft.x - 600, topLeft.y - 200, 1800, 1200);
+      bg.setDepth(-20);
     }
   }
 
   private createElevatedIsland() {
-    // Create a roughly 12x10 island in the center of the 16x16 world
-    // Island center is around (8,8), so island goes from (2,3) to (13,12)
     const islandBounds = {
       minCol: 2, maxCol: 13,
       minRow: 3, maxRow: 12
     };
 
-    // Create the elevated grass platform
+    const useRealTiles = this.has('terrain-elevated');
+
     for (let row = islandBounds.minRow; row <= islandBounds.maxRow; row++) {
       for (let col = islandBounds.minCol; col <= islandBounds.maxCol; col++) {
         const screenPos = gridToScreen(col, row);
-        
-        // Use terrain-elevated tileset for the grass platform
-        // For now, use a simple approach - we'll use tile index based on position
-        const tileIndex = this.getElevatedTileIndex(col, row, islandBounds);
-        const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-elevated');
-        
-        // Set the frame based on tile index (9 cols in tileset)
-        grassTile.setFrame(tileIndex);
-        grassTile.setDepth(-5); // Above water, below decorations
+
+        if (useRealTiles) {
+          const tileIndex = this.getElevatedTileIndex(col, row, islandBounds);
+          const grassTile = this.add.image(screenPos.x, screenPos.y, 'terrain-elevated');
+          grassTile.setFrame(tileIndex);
+          grassTile.setDepth(-5);
+        } else {
+          // Fallback: draw green isometric diamond
+          const isEdge = row === islandBounds.minRow || row === islandBounds.maxRow ||
+                         col === islandBounds.minCol || col === islandBounds.maxCol;
+          const grass = this.add.graphics();
+          grass.fillStyle(isEdge ? 0x4a8c3f : 0x5a9c4f);
+          grass.beginPath();
+          grass.moveTo(screenPos.x, screenPos.y - 16);
+          grass.lineTo(screenPos.x + 32, screenPos.y);
+          grass.lineTo(screenPos.x, screenPos.y + 16);
+          grass.lineTo(screenPos.x - 32, screenPos.y);
+          grass.closePath();
+          grass.fill();
+          grass.setDepth(-5);
+        }
       }
     }
 
-    // Create tilled plots in the center 6x4 area
     this.createFarmPlots(islandBounds);
   }
 
   private getElevatedTileIndex(col: number, row: number, bounds: any): number {
-    // Simple tile selection for elevated terrain (9 cols × 6 rows tileset)
-    // Top-left corner tiles, edge tiles, center tiles, etc.
-    
+    // Tiny Swords terrain-elevated.png: 9 cols × 6 rows of 64×64 tiles
+    // Left half (cols 0-4): grass top only
+    // Right half (cols 5-8): grass top + cliff face
+    //
+    // Key tiles identified from the tileset image:
+    // Frame 10 (row 1, col 1): center grass fill
+    // Frame 0  (row 0, col 0): top-left corner
+    // Frame 1  (row 0, col 1): top edge
+    // Frame 9  (row 1, col 0): left edge
+    // Right-side tiles with cliff faces start at col 5
+
     const isTopEdge = row === bounds.minRow;
     const isBottomEdge = row === bounds.maxRow;
     const isLeftEdge = col === bounds.minCol;
     const isRightEdge = col === bounds.maxCol;
-    
-    // Corner tiles
-    if (isTopEdge && isLeftEdge) return 0;      // Top-left corner
-    if (isTopEdge && isRightEdge) return 2;     // Top-right corner
-    if (isBottomEdge && isLeftEdge) return 18;  // Bottom-left corner (row 2)
-    if (isBottomEdge && isRightEdge) return 20; // Bottom-right corner
-    
-    // Edge tiles
-    if (isTopEdge) return 1;     // Top edge
-    if (isBottomEdge) return 19; // Bottom edge
-    if (isLeftEdge) return 9;    // Left edge
-    if (isRightEdge) return 11;  // Right edge
-    
-    // Center/inner tiles
-    return 10; // Center grass tile
+
+    // Use right-half tiles (with cliff) for bottom/right edges to show elevation
+    // Use left-half tiles (grass only) for top/left edges and center
+
+    // Bottom edge with cliff face
+    if (isBottomEdge && isLeftEdge) return 45;  // row 5, col 0 — bottom-left cliff
+    if (isBottomEdge && isRightEdge) return 47; // row 5, col 2 — bottom-right cliff
+    if (isBottomEdge) return 46;                // row 5, col 1 — bottom cliff center
+
+    // Right edge with cliff
+    if (isRightEdge && isTopEdge) return 14;    // row 1, col 5 — top-right with cliff
+    if (isRightEdge) return 23;                 // row 2, col 5 — right cliff edge
+
+    // Top edge (grass only)
+    if (isTopEdge && isLeftEdge) return 0;      // row 0, col 0 — top-left corner
+    if (isTopEdge) return 1;                    // row 0, col 1 — top edge
+
+    // Left edge (grass only)
+    if (isLeftEdge) return 9;                   // row 1, col 0 — left edge
+
+    // Center fill
+    return 10;                                  // row 1, col 1 — center grass
   }
 
   private createFarmPlots(islandBounds: any) {
-    // Create 6x4 tilled area in the center of the island
     const plotCenterCol = Math.floor((islandBounds.minCol + islandBounds.maxCol) / 2);
     const plotCenterRow = Math.floor((islandBounds.minRow + islandBounds.maxRow) / 2);
-    
+
     const plotBounds = {
       minCol: plotCenterCol - 3,
       maxCol: plotCenterCol + 2,
@@ -159,67 +208,61 @@ export class MapScene extends Phaser.Scene {
     for (let row = plotBounds.minRow; row <= plotBounds.maxRow; row++) {
       for (let col = plotBounds.minCol; col <= plotBounds.maxCol; col++) {
         const screenPos = gridToScreen(col, row);
-        
-        // Create tilled soil overlay
         const tilledOverlay = this.add.graphics();
-        tilledOverlay.fillStyle(0x8B4513, 0.8); // Brown tilled soil
+        tilledOverlay.fillStyle(0x8B4513, 0.8);
         tilledOverlay.fillEllipse(screenPos.x, screenPos.y, 60, 30);
-        tilledOverlay.setDepth(-4); // Above grass platform
+        tilledOverlay.setDepth(-4);
       }
     }
   }
 
   private createWaterFoam() {
-    // Place animated water foam around the island edges
+    if (!this.has('water-foam')) return;
+
     const islandBounds = { minCol: 2, maxCol: 13, minRow: 3, maxRow: 12 };
-    const foamPositions = [];
-    
-    // Add foam around island perimeter
+    const foamPositions: { col: number; row: number }[] = [];
+
     for (let col = islandBounds.minCol - 1; col <= islandBounds.maxCol + 1; col++) {
-      // Top and bottom edges
       foamPositions.push({ col, row: islandBounds.minRow - 1 });
       foamPositions.push({ col, row: islandBounds.maxRow + 1 });
     }
-    
     for (let row = islandBounds.minRow; row <= islandBounds.maxRow; row++) {
-      // Left and right edges
       foamPositions.push({ col: islandBounds.minCol - 1, row });
       foamPositions.push({ col: islandBounds.maxCol + 1, row });
     }
 
-    // Place foam sprites with animation
     foamPositions.forEach((pos, index) => {
       const screenPos = gridToScreen(pos.col, pos.row);
       const foam = this.add.sprite(screenPos.x, screenPos.y, 'water-foam');
-      foam.setDepth(-10); // Above water background, below island
-      foam.setScale(0.3); // Scale down the large 192x192 frames
-      foam.play('water-foam-anim');
-      
-      // Add slight random delay to make foam feel more natural
-      foam.setDelay(index * 100);
+      foam.setDepth(-10);
+      foam.setScale(0.3);
+      foam.play({ key: 'water-foam-anim', delay: index * 100 });
     });
   }
 
   private placeBuildingsAndDecorations() {
-    // Island bounds
     const islandBounds = { minCol: 2, maxCol: 13, minRow: 3, maxRow: 12 };
-    
-    // Place house on the island (left side)
-    const housePos = gridToScreen(4, 5);
-    const house = this.add.image(housePos.x, housePos.y - 30, 'house');
-    house.setDepth(5);
-    house.setScale(0.8);
-    
-    // Place barn on the island (right side)
-    const barnPos = gridToScreen(11, 6);
-    const barn = this.add.image(barnPos.x, barnPos.y - 40, 'barn');
-    barn.setDepth(5);
-    barn.setScale(0.6);
-    
-    // Place animated trees around island perimeter (4-6 trees)
+
+    // Place house
+    if (this.has('house')) {
+      const housePos = gridToScreen(4, 5);
+      const house = this.add.image(housePos.x, housePos.y - 30, 'house');
+      house.setDepth(5);
+      house.setScale(0.8);
+    }
+
+    // Place barn
+    if (this.has('barn')) {
+      const barnPos = gridToScreen(11, 6);
+      const barn = this.add.image(barnPos.x, barnPos.y - 40, 'barn');
+      barn.setDepth(5);
+      barn.setScale(0.6);
+    }
+
+    // Trees
     this.placeTrees(islandBounds);
-    
-    // Add decorative bushes and rocks on the island
+
+    // Decorations (bushes, rocks)
     this.placeIslandDecorations(islandBounds);
   }
 
@@ -234,16 +277,19 @@ export class MapScene extends Phaser.Scene {
     ];
 
     treePositions.forEach(tree => {
+      if (!this.has(tree.type)) return;
       const screenPos = gridToScreen(tree.col, tree.row);
       const treeSprite = this.add.sprite(screenPos.x, screenPos.y - 40, tree.type);
-      treeSprite.setDepth(8); // High depth so they appear in front
-      treeSprite.setScale(0.4); // Scale down the large tree sprites
-      treeSprite.play(`${tree.type}-sway`);
+      treeSprite.setDepth(8);
+      treeSprite.setScale(0.4);
+      const animKey = `${tree.type}-sway`;
+      if (this.anims.exists(animKey)) {
+        treeSprite.play(animKey);
+      }
     });
   }
 
   private placeIslandDecorations(islandBounds: any) {
-    // Scatter bushes and rocks on the grass areas
     const decorations = [
       { col: 5, row: 11, type: 'bush1' },
       { col: 10, row: 5, type: 'bush2' },
@@ -253,15 +299,15 @@ export class MapScene extends Phaser.Scene {
     ];
 
     decorations.forEach(deco => {
+      if (!this.has(deco.type)) return;
       const screenPos = gridToScreen(deco.col, deco.row);
       const decoration = this.add.image(screenPos.x, screenPos.y, deco.type);
-      decoration.setDepth(2); // Above grass, below trees and buildings
+      decoration.setDepth(2);
       decoration.setScale(0.5);
     });
   }
 
   private placeWaterDecorations() {
-    // Place water rocks around the island
     const waterRocks = [
       { col: 1, row: 6, type: 'water-rock1' },
       { col: 14, row: 8, type: 'water-rock2' },
@@ -270,24 +316,26 @@ export class MapScene extends Phaser.Scene {
     ];
 
     waterRocks.forEach(rock => {
+      if (!this.has(rock.type)) return;
       const screenPos = gridToScreen(rock.col, rock.row);
       const waterRock = this.add.image(screenPos.x, screenPos.y, rock.type);
-      waterRock.setDepth(-8); // Above water, but below foam
+      waterRock.setDepth(-8);
       waterRock.setScale(0.6);
     });
 
-    // Place rubber duck (easter egg)
-    const duckPos = gridToScreen(15, 5);
-    const duck = this.add.image(duckPos.x, duckPos.y, 'rubber-duck');
-    duck.setDepth(-7); // Floating on water surface
-    duck.setScale(0.8);
+    // Rubber duck easter egg
+    if (this.has('rubber-duck')) {
+      const duckPos = gridToScreen(15, 5);
+      const duck = this.add.image(duckPos.x, duckPos.y, 'rubber-duck');
+      duck.setDepth(-7);
+      duck.setScale(0.8);
+    }
   }
 
   private createPlayer(spawnPoint: string) {
-    // Default spawn positions for different entry points (on the island)
     const spawnPositions: Record<string, { x: number; y: number }> = {
-      default: { x: 8, y: 7 }, // Center of island
-      fromTown: { x: 10, y: 10 }, // Near barn
+      default: { x: 8, y: 7 },
+      fromTown: { x: 10, y: 10 },
     };
 
     const spawn = spawnPositions[spawnPoint] || spawnPositions.default;
@@ -295,7 +343,6 @@ export class MapScene extends Phaser.Scene {
   }
 
   private initializeSystems() {
-    // Only initialize farm-specific systems for farm map
     if (this.currentMapId === 'farm') {
       this.pawnManager = new PawnManager(this);
       this.cropManager = new CropManager(this);
@@ -306,61 +353,50 @@ export class MapScene extends Phaser.Scene {
   }
 
   private setupInput() {
-    // Click/tap to move
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.playerController) {
         this.playerController.handleClick(pointer);
       }
     });
-
-    // Keyboard controls are handled in PlayerController
   }
 
   private setupMessageHandling() {
-    // Handle state updates from extension host
     MessageBridge.on('state-update', (farmState) => {
       this.handleStateUpdate(farmState);
     });
 
-    // Handle season changes
     MessageBridge.on('season-change', (data) => {
       console.log('Season changed to:', data.season);
-      // Update lighting/ambiance for season
       this.dayNight?.updateSeason(data.season);
     });
 
-    // Handle events
     MessageBridge.on('event', (event) => {
       this.handleGameEvent(event);
     });
   }
 
   private setupCamera() {
-    // Set world bounds to accommodate the larger map with water
     const gridSize = this.registry.get('gridSize') || 16;
-    const worldWidth = gridSize * 64; // Approximate world size
+    const worldWidth = gridSize * 64;
     const worldHeight = gridSize * 32;
-    
+
     this.physics.world.setBounds(-worldWidth/2, -worldHeight/2, worldWidth * 2, worldHeight * 2);
     this.cameras.main.setBounds(-worldWidth/2, -worldHeight/2, worldWidth * 2, worldHeight * 2);
-    
+
     if (this.playerController && this.cameraController) {
       this.cameraController.followPlayer(this.playerController.sprite);
     }
   }
 
   private handleStateUpdate(farmState: any) {
-    // Update pawns
     if (this.pawnManager && farmState.pawns) {
       this.pawnManager.sync(farmState.pawns);
     }
 
-    // Update crops
     if (this.cropManager && farmState.farm && farmState.farm.plots) {
       this.cropManager.sync(farmState.farm.plots);
     }
 
-    // Update player position if needed
     if (farmState.player && farmState.player.position) {
       const playerPos = farmState.player.position;
       if (this.playerController) {
@@ -368,18 +404,15 @@ export class MapScene extends Phaser.Scene {
       }
     }
 
-    // Store current state for persistence
     MessageBridge.setState({ farmState });
   }
 
   private handleGameEvent(event: any) {
     switch (event.type) {
       case 'harvest':
-        // Show harvest particles or effects
         console.log('Harvest event:', event.message);
         break;
       case 'pawn-spawn':
-        // Could show spawn effect
         break;
       default:
         console.log('Game event:', event);
@@ -387,20 +420,15 @@ export class MapScene extends Phaser.Scene {
   }
 
   update(time: number, delta: number) {
-    // Update all systems
     this.playerController?.update(delta);
     this.pawnManager?.update(delta);
     this.cropManager?.update(delta);
     this.cameraController?.update(delta);
     this.dayNight?.update(time);
 
-    // Sort children by depth for isometric rendering
     this.children.sort('depth');
   }
 
-  /**
-   * Handle player movement for extension host sync
-   */
   onPlayerMove(gridX: number, gridY: number) {
     MessageBridge.send({
       type: 'player-move',
@@ -408,9 +436,6 @@ export class MapScene extends Phaser.Scene {
     });
   }
 
-  /**
-   * Handle inspection of game objects
-   */
   inspectTile(gridX: number, gridY: number) {
     MessageBridge.send({
       type: 'inspect',
@@ -418,16 +443,10 @@ export class MapScene extends Phaser.Scene {
     });
   }
 
-  /**
-   * Get screen position from grid coordinates
-   */
   getScreenPosition(gridX: number, gridY: number): { x: number; y: number } {
     return gridToScreen(gridX, gridY);
   }
 
-  /**
-   * Generate walkable grid for the island (only island tiles are walkable)
-   */
   private generateIslandWalkableGrid(gridSize: number): boolean[][] {
     const grid: boolean[][] = [];
     const islandBounds = { minCol: 2, maxCol: 13, minRow: 3, maxRow: 12 };
@@ -445,10 +464,9 @@ export class MapScene extends Phaser.Scene {
       }
     }
 
-    // Mark building positions as non-walkable
     const buildings = [
-      { col: 4, row: 5 }, // house
-      { col: 11, row: 6 } // barn
+      { col: 4, row: 5 },
+      { col: 11, row: 6 }
     ];
     buildings.forEach(building => {
       if (building.row >= 0 && building.row < gridSize &&
@@ -460,9 +478,6 @@ export class MapScene extends Phaser.Scene {
     return grid;
   }
 
-  /**
-   * Check if current map supports pawns/farming
-   */
   supportsPawns(): boolean {
     return this.currentMapId === 'farm';
   }

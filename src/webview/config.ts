@@ -15,6 +15,9 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  loader: {
+    maxParallelDownloads: 6,
+  },
   scene: [BootScene, MapScene, UIScene],
   physics: {
     default: 'arcade',

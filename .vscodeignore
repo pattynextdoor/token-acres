@@ -1,0 +1,14 @@
+.vscode/**
+.vscode-test/**
+src/**
+scripts/**
+node_modules/**
+.gitignore
+.DS_Store
+*.log
+coverage/**
+.nyc_output/**
+.token-acres/**
+assets/tiny-swords/**
+docs/**
+LICENSE
