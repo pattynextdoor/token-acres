@@ -11,8 +11,11 @@ import {
   Mood, 
   Season, 
   CropType,
+  ItemStack,
   CROP_DATA 
 } from './types';
+import { InventoryManager } from './inventory';
+import { cropToHarvestItem, createItemStack } from './item-registry';
 
 export class FarmEngine extends EventEmitter {
   private state: FarmState;
@@ -63,6 +66,7 @@ export class FarmEngine extends EventEmitter {
       state: 'walking',
       position: this.getBarnPosition(),
       agentSessionId: agent.id,
+      inventory: [], // Empty inventory for new pawn
     };
 
     this.state.pawns.push(pawn);
@@ -174,7 +178,7 @@ export class FarmEngine extends EventEmitter {
   }
 
   /**
-   * Harvest ready crops and earn seeds.
+   * Harvest ready crops and add to storehouse inventory.
    */
   private processHarvests(): number {
     let totalSeeds = 0;
@@ -183,6 +187,17 @@ export class FarmEngine extends EventEmitter {
     for (const plot of this.state.farm.plots) {
       if (plot.type === 'planted' && plot.crop && plot.crop.stage >= plot.crop.maxStages) {
         const crop = plot.crop;
+        
+        // Determine harvest item and quantity
+        const harvestItemId = cropToHarvestItem(crop.type, crop.isGolden);
+        const harvestQuantity = this.calculateHarvestQuantity(crop, plot.soilHealth);
+        
+        // Add harvested items to storehouse
+        if (harvestQuantity > 0) {
+          this.addToStorehouse(harvestItemId, harvestQuantity);
+        }
+
+        // Calculate seed value for tracking (economy stats)
         const sellValue = this.calculateSellValue(crop, plot.soilHealth);
         totalSeeds += sellValue;
 
@@ -206,6 +221,8 @@ export class FarmEngine extends EventEmitter {
     }
 
     if (totalSeeds > 0) {
+      // For now, still award seeds for backwards compatibility
+      // In the future, selling system will convert items to seeds
       this.state.economy.seeds += totalSeeds;
       this.state.economy.totalEarned += totalSeeds;
       this.emit('crops-harvested', { plots: harvestedPlots, seedsEarned: totalSeeds });
@@ -347,7 +364,218 @@ export class FarmEngine extends EventEmitter {
     return null;
   }
 
+  // ===== INVENTORY OPERATIONS =====
+
+  /**
+   * Add items to storehouse
+   */
+  addToStorehouse(itemId: string, quantity: number): boolean {
+    const result = InventoryManager.addItem(
+      this.state.storehouse.inventory, 
+      itemId, 
+      quantity, 
+      this.state.storehouse.capacity
+    );
+    
+    if (result.processed > 0) {
+      this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Remove items from storehouse
+   */
+  removeFromStorehouse(itemId: string, quantity: number): boolean {
+    const result = InventoryManager.removeItem(
+      this.state.storehouse.inventory, 
+      itemId, 
+      quantity
+    );
+
+    if (result.processed > 0) {
+      this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Get count of items in storehouse
+   */
+  getStorehouseCount(itemId: string): number {
+    return InventoryManager.getCount(this.state.storehouse.inventory, itemId);
+  }
+
+  /**
+   * Pawn picks up items (direct to inventory)
+   */
+  pawnPickup(pawnId: string, itemId: string, quantity: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    const result = InventoryManager.addItem(pawn.inventory, itemId, quantity, 5);
+    
+    if (result.processed > 0) {
+      this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Pawn deposits items (direct from inventory)
+   */
+  pawnDeposit(pawnId: string, itemId: string, quantity: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    const result = InventoryManager.removeItem(pawn.inventory, itemId, quantity);
+    
+    if (result.processed > 0) {
+      this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Pawn deposits all items to storehouse
+   */
+  pawnDepositAll(pawnId: string): void {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return;
+
+    const uniqueItems = InventoryManager.getUniqueItems(pawn.inventory);
+    let hasDeposited = false;
+
+    for (const itemId of uniqueItems) {
+      const quantity = InventoryManager.getCount(pawn.inventory, itemId);
+      if (quantity > 0) {
+        const transferred = this.transferToStorehouse(pawnId, itemId, quantity);
+        if (transferred) {
+          hasDeposited = true;
+        }
+      }
+    }
+
+    if (hasDeposited) {
+      this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+      this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+    }
+  }
+
+  /**
+   * Transfer items from pawn to storehouse
+   */
+  transferToStorehouse(pawnId: string, itemId: string, quantity: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    const result = InventoryManager.transfer(
+      pawn.inventory,
+      this.state.storehouse.inventory,
+      itemId,
+      quantity,
+      this.state.storehouse.capacity
+    );
+
+    if (result.processed > 0) {
+      this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+      this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Withdraw items from storehouse to pawn
+   */
+  withdrawFromStorehouse(pawnId: string, itemId: string, quantity: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    const result = InventoryManager.transfer(
+      this.state.storehouse.inventory,
+      pawn.inventory,
+      itemId,
+      quantity,
+      5 // Pawn inventory max slots
+    );
+
+    if (result.processed > 0) {
+      this.emit('storehouse-update', { inventory: this.state.storehouse.inventory });
+      this.emit('pawn-inventory-update', { pawnId, inventory: pawn.inventory });
+    }
+
+    return result.success;
+  }
+
+  /**
+   * Get storehouse inventory
+   */
+  getStorehouseInventory(): ItemStack[] {
+    return [...this.state.storehouse.inventory]; // Return copy
+  }
+
+  /**
+   * Get pawn inventory
+   */
+  getPawnInventory(pawnId: string): ItemStack[] {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    return pawn ? [...pawn.inventory] : []; // Return copy
+  }
+
+  /**
+   * Check if storehouse can accept items
+   */
+  canStorehouseAccept(itemId: string, quantity: number): boolean {
+    return InventoryManager.hasSpace(
+      this.state.storehouse.inventory,
+      itemId,
+      quantity,
+      this.state.storehouse.capacity
+    );
+  }
+
+  /**
+   * Check if pawn can carry items
+   */
+  canPawnCarry(pawnId: string, itemId: string, quantity: number): boolean {
+    const pawn = this.state.pawns.find(p => p.id === pawnId);
+    if (!pawn) return false;
+
+    return InventoryManager.hasSpace(pawn.inventory, itemId, quantity, 5);
+  }
+
   // Helper methods
+  private calculateHarvestQuantity(crop: CropState, soilHealth: number): number {
+    // Base quantity is 1, can be improved with quality and soil health
+    let quantity = 1;
+
+    // Quality bonus
+    switch (crop.quality) {
+      case 'S': quantity += 1; break; // 2 items
+      case 'A': quantity += 0.5; break; // 1.5 items (rounded)
+      // B and C stay at 1
+    }
+
+    // Soil health bonus
+    if (soilHealth >= 80) {
+      quantity += 0.5;
+    } else if (soilHealth < 30) {
+      quantity = Math.max(1, quantity - 0.5);
+    }
+
+    // Golden crops give more
+    if (crop.isGolden) {
+      quantity *= 1.5;
+    }
+
+    return Math.floor(Math.max(1, quantity));
+  }
+
   private gradeToActions(grade: Grade): number {
     switch (grade) {
       case 'S': return 3;

@@ -6,7 +6,7 @@ import { FarmState, PlotState, Season } from './types';
 
 const SAVE_DIR = '.token-acres';
 const STATE_FILE = 'farm-state.json';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export class PersistenceManager {
   private savePath: string;
@@ -90,6 +90,7 @@ export class PersistenceManager {
           { type: 'house', position: { x: 0, y: 0 } },
           { type: 'barn', position: { x: 7, y: 0 } },
           { type: 'well', position: { x: 3, y: 1 } },
+          { type: 'storehouse', position: { x: 6, y: 1 } },
         ],
       },
       pawns: [],
@@ -120,6 +121,10 @@ export class PersistenceManager {
         soundEnabled: false,
         notificationsEnabled: true,
       },
+      storehouse: {
+        inventory: [],
+        capacity: 256,
+      },
     };
   }
 
@@ -139,10 +144,24 @@ export class PersistenceManager {
   }
 
   private migrate(state: FarmState): FarmState {
-    // Future: handle schema migrations
+    // Handle schema migrations
     console.log(`Token Acres: Migrating farm state from version ${state.version} to ${SCHEMA_VERSION}`);
     
-    // For now, just update version
+    // Version 1 -> 2: Add inventory system
+    if (state.version < 2) {
+      // Add storehouse
+      (state as any).storehouse = {
+        inventory: [],
+        capacity: 256,
+      };
+
+      // Add inventory to all pawns
+      for (const pawn of state.pawns) {
+        (pawn as any).inventory = [];
+      }
+    }
+    
+    // Update version
     state.version = SCHEMA_VERSION;
     
     // Add any missing fields with defaults
@@ -161,6 +180,21 @@ export class PersistenceManager {
         hairColor: 0,
         outfit: 0,
       };
+    }
+
+    // Ensure storehouse exists (in case of partial migration)
+    if (!(state as any).storehouse) {
+      (state as any).storehouse = {
+        inventory: [],
+        capacity: 256,
+      };
+    }
+
+    // Ensure all pawns have inventory
+    for (const pawn of state.pawns) {
+      if (!(pawn as any).inventory) {
+        (pawn as any).inventory = [];
+      }
     }
 
     return state;
